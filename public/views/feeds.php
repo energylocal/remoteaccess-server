@@ -14,6 +14,7 @@
         border-radius: 50%;
     }
     .list-group-item{
+        color:#000;
         background-color: transparent!important;
     }
     .no-underline {
@@ -306,11 +307,11 @@ function prettySize(bytes) {
     var size = new Number(bytes).toFixed(decimals) + 'B';
     var length = bytes.toString().length
     if(length > 9) {
-        size = new Number(bytes/1000000000).toFixed(decimals) + ' GB';
+        size = new Number(bytes/(1024*1024*1024)).toFixed(decimals) + ' GB';
     } else if (length > 6) {
-        size = new Number(bytes/1000000).toFixed(decimals) + ' MB';
+        size = new Number(bytes/(1024*1024)).toFixed(decimals) + ' MB';
     } else if (length > 3) {
-        size = new Number(bytes/1000).toFixed(decimals) + ' KB';
+        size = new Number(bytes/(1024)).toFixed(decimals) + ' KB';
     }
     return size;
 }
