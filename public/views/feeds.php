@@ -17,6 +17,7 @@
         border-radius: 50%;
     }
     .list-group-item{
+        color:#000;
         background-color: transparent!important;
     }
     .no-underline {
@@ -191,22 +192,22 @@
 
 </script>
 <script>
-// var options = {
-//     username: '<?php echo $username; ?>', // load with AJAX would be better
-//     password: '<?php echo $password; ?>', // load with AJAX would be better
-//     clientId: 'mqttjs_' + '<?php echo $username; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
-//     port: 8083,
-//     ejectUnauthorized: false,
-//     host: "wss://mqtt.emoncms.org"
-// }
-//DEV ONLY SETTINGS
 var options = {
     username: '<?php echo $username; ?>', // load with AJAX would be better
     password: '<?php echo $password; ?>', // load with AJAX would be better
-    clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),
-    port: 9001,
-    host: "ws://localhost"
+    clientId: 'mqttjs_' + '<?php echo $username; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
+    port: 8083,
+    ejectUnauthorized: false,
+    host: "wss://mqtt.emoncms.org"
 }
+// //DEV ONLY SETTINGS
+// var options = {
+//     username: '<?php echo $username; ?>', // load with AJAX would be better
+//     password: '<?php echo $password; ?>', // load with AJAX would be better
+//     clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),
+//     port: 9001,
+//     host: "ws://localhost"
+// }
 
 options.will = {
     topic: 'user/' + options.username + '/response/' + options.clientId,
@@ -332,11 +333,11 @@ function prettySize(bytes) {
     var size = new Number(bytes).toFixed(decimals) + 'B';
     var length = bytes.toString().length
     if(length > 9) {
-        size = new Number(bytes/1000000000).toFixed(decimals) + ' GB';
+        size = new Number(bytes/(1024*1024*1024)).toFixed(decimals) + ' GB';
     } else if (length > 6) {
-        size = new Number(bytes/1000000).toFixed(decimals) + ' MB';
+        size = new Number(bytes/(1024*1024)).toFixed(decimals) + ' MB';
     } else if (length > 3) {
-        size = new Number(bytes/1000).toFixed(decimals) + ' KB';
+        size = new Number(bytes/(1024)).toFixed(decimals) + ' KB';
     }
     return size;
 }
