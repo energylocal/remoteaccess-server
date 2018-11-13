@@ -36,8 +36,48 @@
 
 </style>
 
-<h2>Feed List <button id="toggle" class="btn btn-outline-dark btn-sm" data-status="disconnected" onclick="on_off(event)">connect</button></h2>
-<p>Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.</p>
+<div id="feeds-navbar" class="d-flex justify-content-sm-between flex-wrap">
+    <div id="page-title" class="d-flex align-items-start flex-nowrap">
+        <h2 class="mb-1 mr-2 text-nowrap">Feed List</h2>
+        <button id="toggle" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
+    </div>
+    <nav id="feedlist-buttons" class="btn-toolbar d-flex justify-content-end" role="toolbar" aria-label="feed buttons">
+        <div id="list-buttons" class="btn-group align-items-start mb-1" role="group" aria-label="Basic example">
+            <button id="collapse-all"
+                type="button"
+                onclick="collapseAll"
+                class="btn btn-outline-primary"
+                title=""
+                data-toggle="tooltip">collapse
+            </button>
+            <button id="select-all"
+                type="button"
+                onclick="selectAll"
+                class="btn btn-outline-primary"
+                title="$t('message.selectall_help')"
+                data-toggle="tooltip"
+            >select
+            </button>
+        </div>
+        
+        <div id="feed-buttons" class="btn-group align-items-start ml-1 mb-1" role="group" aria-label="Feed Specific actions">
+            <button type="button" class="btn btn-info" disabled title="Edit selected feeds" data-toggle="tooltip">
+                <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#edit"></use></svg>
+            </button>
+            <button type="button" class="btn btn-info" disabled title="Delete selected feeds" data-toggle="tooltip">
+                <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#delete"></use></svg>
+            </button>
+            <button type="button" class="btn btn-info" disabled title="Download selected feeds" data-toggle="tooltip">
+                <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#download"></use></svg>
+            </button>
+            <button type="button" class="btn btn-info" disabled title="View Selected feeds as a graph" data-toggle="tooltip">
+                <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#view"></use></svg>
+            </button>
+        </div>
+    </nav>
+</div>
+
+<p class="d-none d-sm-block">Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.</p>
 
 <div id="loading" class="alert alert-warning">
 <strong>Loading:</strong> Remote feed list, please wait 5 seconds...
@@ -52,22 +92,22 @@
 <script src="js/misc.js"></script>
 
 <script>
-// var options = {
-//     username: '<?php echo $username; ?>', // load with AJAX would be better
-//     password: '<?php echo $password; ?>', // load with AJAX would be better
-//     clientId: 'abc', // @todo: output 6 digit random hex number: eg a31bc1
-//     port: 8083,
-//     ejectUnauthorized: false,
-//     host: "wss://mqtt.emoncms.org"
-// }
-// DEV ONLY SETTINGS
 var options = {
     username: '<?php echo $username; ?>', // load with AJAX would be better
     password: '<?php echo $password; ?>', // load with AJAX would be better
-    clientId: 'localDev_js',
-    port: 9001,
-    host: "ws://localhost"
+    clientId: 'abc', // @todo: output 6 digit random hex number: eg a31bc1
+    port: 8083,
+    ejectUnauthorized: false,
+    host: "wss://mqtt.emoncms.org"
 }
+// DEV ONLY SETTINGS
+// var options = {
+//     username: '<?php echo $username; ?>', // load with AJAX would be better
+//     password: '<?php echo $password; ?>', // load with AJAX would be better
+//     clientId: 'localDev_js',
+//     port: 9001,
+//     host: "ws://localhost"
+// }
 document.querySelector('#loading').classList.add('d-none')
 var nodes = false;
 var pubInterval = null
@@ -324,6 +364,13 @@ function processData(data) {
     }
     nodes = Object.values(nodes)
     return nodes
+}
+
+function selectAll() {
+    // todo: mark checked all checkboxes with class select-feed
+}
+function collapseAll() {
+    // todo: mark all accordions as collapse
 }
 
     // JQUERY TO CALL BOOTSTRAP JAVASCRIPT 
