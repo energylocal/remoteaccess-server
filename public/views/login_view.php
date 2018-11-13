@@ -23,7 +23,7 @@ $("#login").click(function() {
     var username = $("#username").val();
     var password = $("#password").val();
     
-    $.ajax({ type: 'POST', url: path+"?q=auth", data: "username="+username+"&password="+password, dataType: 'json', async: false, success: function(result){
+    $.ajax({ type: 'POST', url: path+"auth", data: "username="+username+"&password="+password, dataType: 'json', async: false, success: function(result){
         if (result.success) {
             window.location = path;
         } else {

@@ -48,22 +48,22 @@ switch ($q)
             $content = view("views/login_view.php",array());
         }
         break;
-                
+
     // json api route
     case "auth":
         $format = "json";
         if (isset($_POST["username"]) && isset($_POST["password"])) {
-        
+
             $username = $_POST["username"];
             $password = $_POST["password"];
-            
+
             $content = json_decode(http_request("POST","https://emoncms.org/user/auth.json",array(
-                "username"=>$username, 
+                "username"=>$username,
                 "password"=>$password
             )));
-            
+
             // TODO: check that user exists in MQTT server database here...
-        
+
             if (isset($content->success) && $content->success) {
                 session_regenerate_id();
                 $_SESSION['username'] = $username;
@@ -71,9 +71,9 @@ switch ($q)
             }
         }
         break;
-        
+
     case "logout":
-        $format = "themedhtml";  
+        $format = "themedhtml";
         session_unset();
         session_destroy();
         $content = "Logout successful";
