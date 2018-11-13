@@ -25,7 +25,7 @@ switch ($q)
     case "":
         $format = "themedhtml";
         if ($session["valid"]) {
-            $content = view("views/feeds.php",$session);
+            $content = view("views/feeds.php",array("session"=>$session));
         } else {
             $content = view("views/login_view.php",array());
         }
