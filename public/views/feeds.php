@@ -27,13 +27,13 @@
     /* show feed update status as red,yellow,green circle  - mobile only*/
     @media (max-width: 575px) {
         .list-group-item-success:before{
-            background-color: #c3e6cb;
+            background-color: #28A745;
         }
         .list-group-item-danger:before{
-            background-color: #c3e6cb;
+            background-color: #FFC107;
         }
         .list-group-item-warning:before{
-            background-color: #ffeeba;
+            background-color: #DC3545;
         }
     }
 
@@ -193,7 +193,7 @@
 </script>
 <script>
 var options = {
-    username: '<?php echo $username; ?>', // load with AJAX would be better
+    username: '<?php echo $session['username']; ?>', // load with AJAX would be better
     password: '<?php echo $password; ?>', // load with AJAX would be better
     clientId: 'mqttjs_' + '<?php echo $username; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
     port: 8083,
