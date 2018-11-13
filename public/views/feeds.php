@@ -3,6 +3,9 @@
     .card .dropdown-toggle:after {transition: all .2s; margin-right:.3rem}
     .card .collapsed .dropdown-toggle:after {transform: rotate(180deg)}
 
+    .list-group-item {
+        color: inherit
+    }
     .list-group-item:before {
         content: "";
         width: .6rem;
@@ -41,7 +44,7 @@
         <h2 class="mb-1 mr-2 text-nowrap">Feed List</h2>
         <button id="toggle" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
     </div>
-    <nav id="feedlist-buttons" class="btn-toolbar d-flex justify-content-end" role="toolbar" aria-label="feed buttons">
+    <nav id="feedlist-buttons" class="btn-toolbar d-flex justify-sm-content-end" role="toolbar" aria-label="feed buttons">
         <div id="list-buttons" class="btn-group align-items-start mb-1" role="group" aria-label="Basic example">
             <button id="collapse-all"
                 type="button"
@@ -77,38 +80,141 @@
     </nav>
 </div>
 
-<p class="d-none d-sm-block">Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.</p>
+<p v-if="!connected" class="d-none d-sm-block">Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.</p>
 
-<div id="loading" class="alert alert-warning">
-<strong>Loading:</strong> Remote feed list, please wait 5 seconds...
+
+<div id="feeds">
+    <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
+        <strong>Loading:</strong> Remote feed list, please wait 5 seconds...
+    </div>
+    <div v-for="(node, index) in nodes" class="card dropup mb-1" :class="node.status">
+        <div class="card-header p-0" :id="'heading' + node.id">
+            <a href="#" class="d-flex no-gutters text-body justify-content-between py-2 no-underline'"
+                :class="{'collapsed': node.collapsed !== false}"
+                data-toggle="collapse" 
+                :data-target="'#collapse_' + node.id"
+                :aria-controls="'collapse_' + node.id">
+                <div class="d-flex col justify-content-between">
+                    <h5 class="col d-flex mb-0 col-md-8 col-xl-6">{{node.tag}}:
+                        <small v-if="hasSelectedFeeds(node.tag) > 0" class="font-weight-light text-muted">({{hasSelectedFeeds(node.tag)}})</small>
+                    </h5>
+                    <div class="col d-none d-sm-block ml-4 pl-4 pl-md-3 pl-lg-2 ml-xl-5 pl-xl-3 text-muted">{{node.size | prettySize}}</div>
+                </div>
+                <div class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right" v-html="list_format_updated(node.lastupdate)"></div>
+            </a>
+        </div>
+            
+        <div :id="'collapse_' + node.id"
+            class="collapse"
+            :data-key="index"
+            :class="{'show': node.collapsed !== false}"
+            :aria-labelledby="'heading' + node.id">
+
+            <ul class="list-group list-group-flush">
+                <li v-for="feed in node.feeds" class="list-group-item pl-0" :class="getFeedClass(feed)" data-toggle="popover" :title="feed.id" data-content="@todo: fill tooltip">
+                    <div class="d-flex justify-content-between no-gutters">
+                        <div class="col col-8 col-md-9">
+                            <div class="row no-gutters">
+                            <div class="pl-3 pull-left">
+                                <div class="custom-control custom-checkbox text-center">
+                                <input :id="'select-feed-' + feed.id"
+                                    :selected="feed.selected"
+                                    :data-id="feed.id" 
+                                    class="custom-control-input select-feed" 
+                                    type="checkbox" 
+                                    aria-label="select this item">
+                                <label :for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
+                                </div>
+                            </div>
+                            <div class="col text-truncate pl-1 col-md-4 col-lg-5 col-xl-4" :title="feed.name">{{feed.name}}</div>
+                            <div class="d-none col d-none d-sm-flex col-5 col-md-7 col-lg-5 col-xl-4">
+                                <div class="d-none d-sm-block pull-left" :title="{'Public': feed.public, 'Private': !feed.public}">
+                                    <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use :href="{'#lock-locked' : feed.public, '#lock-unlocked': !feed.public}"></use></svg>
+                                </div>
+                                <div class="col d-none d-md-block text-truncate col-5 col-md-6" :title="getEngineName(feed)">{{getEngineName(feed)}}</div>
+                                <div class="col d-none d-sm-block col-6 col-sm-10 col-md-4">{{feed.size | prettySize(feed.size) }}</div>
+                            </div>
+                            </div>
+                        </div>
+                        <div class="col col-sm-4 col-md-3">
+                            <div class="row no-gutters">
+                            <div class="col text-right text-truncate pr-2">
+                                {{list_format_value(feed.value)}} {{feed.unit}}
+                            </div>
+                            <div class="col col-6 col-md-4 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
 </div>
 
-<div id="feeds"></div>
-<table id="feeds-old" class="table"></table>
-
-<script src="js/jquery-1.11.3.min.js""></script>
+<script src="js/jquery-1.11.3.min.js"></script>
 <script src="js/bootstrap.bundle.min.js"></script>
 <script src="js/mqtt.min.js"></script>
 <script src="js/misc.js"></script>
+<script src="js/vue.js"></script>
 
 <script>
-var options = {
-    username: '<?php echo $username; ?>', // load with AJAX would be better
-    password: '<?php echo $password; ?>', // load with AJAX would be better
-    clientId: 'mqttjs_' + '<?php echo $username; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
-    port: 8083,
-    ejectUnauthorized: false,
-    host: "wss://mqtt.emoncms.org"
-}
-// DEV ONLY SETTINGS
+    var list = new Vue({
+        el: '#feeds',
+        data: {
+            nodes: [],
+            connected: false
+        },
+        methods: {
+            list_format_updated: function(value) {
+                return list_format_updated(value);
+            },
+            list_format_value: function(value) {
+                return list_format_value(value);
+            }
+        },
+        filters: {
+            prettySize: function (bytes) {
+                var decimals = 0
+                var size = new Number(bytes).toFixed(decimals) + 'B';
+                var length = bytes.toString().length
+                if(length > 9) {
+                    size = new Number(bytes/1000000000).toFixed(decimals) + ' GB';
+                } else if (length > 6) {
+                    size = new Number(bytes/1000000).toFixed(decimals) + ' MB';
+                } else if (length > 3) {
+                    size = new Number(bytes/1000).toFixed(decimals) + ' KB';
+                }
+                return size;
+            }
+        }
+    });
+
+</script>
+<script>
 // var options = {
 //     username: '<?php echo $username; ?>', // load with AJAX would be better
 //     password: '<?php echo $password; ?>', // load with AJAX would be better
-//     clientId: 'localDev_js',
-//     port: 9001,
-//     host: "ws://localhost"
+//     clientId: 'mqttjs_' + '<?php echo $username; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
+//     port: 8083,
+//     ejectUnauthorized: false,
+//     host: "wss://mqtt.emoncms.org"
 // }
-document.querySelector('#loading').classList.add('d-none')
+//DEV ONLY SETTINGS
+var options = {
+    username: '<?php echo $username; ?>', // load with AJAX would be better
+    password: '<?php echo $password; ?>', // load with AJAX would be better
+    clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),
+    port: 9001,
+    host: "ws://localhost"
+}
+
+options.will = {
+    topic: 'user/' + options.username + '/response/' + options.clientId,
+    payload: 'DISCONNECTED CLIENT ' + options.clientId + '--------',
+    qos: 0,
+    retain: false
+};
+
 var nodes = false;
 var pubInterval = null
 
@@ -116,7 +222,6 @@ var pubInterval = null
 connect()
 
 function connect() {
-    document.querySelector('#loading').classList.remove('d-none')
     console.log("mqtt connect");
     client = mqtt.connect(options.host, options);
     
@@ -140,89 +245,9 @@ function connect() {
         nodes = processData(feeds);
         console.log("response received");
         // console.log('processed feeds into nodes', nodes)
-        draw(nodes)
+        list.nodes = nodes
         // disconnect()
     })
-}
-
-function draw(nodes) {
-    var out = ''
-    for (i in nodes) {
-        let node = nodes[i]
-        out += '<div class="card dropup mb-1" class="node.status">';
-        out += '<div class="card-header p-0" id="heading' + node.id +'">';
-        out += '<a href="#"';
-        out += '    class="d-flex no-gutters text-body justify-content-between py-2 no-underline' + (node.collapsed !== false ? ' collapsed' : '') + '"';
-        out += '    data-toggle="collapse" data-target="#collapse_' + (node.id) + '"';
-        out += '    aria-controls="collapse_' + (node.id) + '"';
-        out += '>';
-        out += '  <div class="d-flex col justify-content-between">';
-        out += '    <h5 class="col d-flex mb-0 col-md-8 col-xl-6">' + node.tag + ': '
-        if (hasSelectedFeeds(node.tag) > 0) {
-            out += '      <small class="font-weight-light text-muted"> (' + hasSelectedFeeds(node.tag) + ')</small>';
-        }
-        out += '    </h5>';
-        out += '    <div class="col d-none d-sm-block ml-4 pl-4 pl-md-3 pl-lg-2 ml-xl-5 pl-xl-3 text-muted">' + prettySize(node.size) + '</div>';
-        out += '  </div>';
-        out += '  <div class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right">';
-        out += list_format_updated(node.lastupdate);
-        out += '  </div>';
-        out += '</a>'
-        out += '</div>' // end of .card-header
-        
-        out += '<div id="collapse_' + node.id + '" data-key="' + i + '"';
-        out += 'class="collapse ' + (node.collapsed !== false ? '' : ' show') + '" aria-labelledby="heading' + node.id + '">';
-        out += '<ul class="list-group list-group-flush">';
-        out += getFeedsHtml(node.feeds)
-        out += '</ul>'; // end of .list-group
-        out += '</div>'; // end of .collapse
-        out += "</div>" // end of .card
-    }
-    document.querySelector('#feeds').innerHTML = out;
-    document.querySelector('#loading').classList.add('d-none')
-}
-
-function getFeedsHtml(feeds) {
-    var out = "";
-    for (var z in feeds) {
-        var row = "";
-        var feed = feeds[z];
-        var icon_id = feed.public ? "#lock-locked" : '#lock-unlocked';
-        row += '<div class="d-flex justify-content-between no-gutters">';
-        row += '  <div class="col col-8 col-md-9">';
-        row += '    <div class="row no-gutters">';
-        row += '      <div class="pl-3 pull-left">';
-        row += '        <div class="custom-control custom-checkbox text-center">';
-        row += '          <input id="' + 'select-feed-' + feed.id + '" ' + (feed.selected ? ' checked' : '') + ' data-id="' + feed.id + '" class="custom-control-input select-feed" type="checkbox" aria-label="select this item">';
-        row += '          <label for="' + 'select-feed-' + feed.id + '" class="custom-control-label position-absolute"></label>';
-        row += '        </div>';
-        row += '      </div>';
-        row += '      <div class="col text-truncate pl-1 col-md-4 col-lg-5 col-xl-4" title="' + feed.name + '">' + feed.name + '</div>';
-        row += '      <div class="d-none col d-none d-sm-flex col-5 col-md-7 col-lg-5 col-xl-4">';
-        row += '        <div class="d-none d-sm-block pull-left" title="' + (feed.public ? 'Public': 'Private') + '">';
-        row += '            <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="' + icon_id +'"></use></svg>';
-        row += '        </div>';
-        row += '        <div class="col d-none d-md-block text-truncate col-5 col-md-6" title="' + getEngineName(feed) + '">' + getEngineName(feed) + '</div>';
-        row += '        <div class="col d-none d-sm-block col-6 col-sm-10 col-md-4">' + prettySize(feed.size) + '</div>';
-        row += '      </div>';
-        row += '    </div>';
-        row += '  </div>';
-        row += '  <div class="col col-sm-4 col-md-3">';
-        row += '    <div class="row no-gutters">';
-        row += '      <div class="col text-right text-truncate pr-2">' + list_format_value(feed.value) + 
-                        (list_format_value(feed.value) !== 'NULL' ? ' ' + feed.unit : '');
-        row += '      </div>';
-        row += '      <div class="col col-6 col-md-4 text-right d-none d-sm-block">' + list_format_updated(feed.time) + '</div>';
-        row += '    </div>';
-        row += '  </div>';
-        row += '</div>';
-
-
-        out += '<li class="list-group-item pl-0 ' + getFeedClass(feed) +'" data-toggle="popover" title="' + feed.id + '" data-content="@todo: fill tooltip">'
-        out += row
-        out += '</li>';
-    }
-    return out
 }
 
 function publish() {
@@ -301,6 +326,7 @@ function hasSelectedFeeds(tag) {
     }
     return count;
 }
+
 function prettySize(bytes) {
     var decimals = 0
     var size = new Number(bytes).toFixed(decimals) + 'B';
@@ -314,6 +340,7 @@ function prettySize(bytes) {
     }
     return size;
 }
+
 function getFeedClass(feed) {
     var lastUpdated = new Date(feed.time * 1000);
     var now = new Date().getTime();
@@ -372,33 +399,26 @@ function collapseAll() {
     // todo: mark all accordions as collapse
 }
 
-    // JQUERY TO CALL BOOTSTRAP JAVASCRIPT 
-    $(function () {
-        
-        $('[data-toggle="popover"]').popover()
-        // store accordion state as property of the nodes array item
-        $(document).on('show.bs.collapse hide.bs.collapse', function(event) {
-            var key = $(event.target).data('key');
-            var value = nodes[key].collapsed || true
-            nodes[key].collapsed = !nodes[key].collapsed;
-        })
+// JQUERY TO CALL BOOTSTRAP JAVASCRIPT 
+$(function () {
+    
+    $('[data-toggle="popover"]').popover()
+    // store accordion state as property of the nodes array item
+    $(document).on('show.bs.collapse hide.bs.collapse', function(event) {
+        var key = $(event.target).data('key');
+        var value = nodes[key].collapsed || true
+        list.nodes[key].collapsed = !value;
+    })
 
-        $(document).on('click', 'input.select-feed', function(event) {
-            for (z in nodes) {
-                for (x in nodes[z].feeds) {
-                    if (nodes[z].feeds[x].id === event.target.dataset.id) {
-                        nodes[z].feeds[x].selected = nodes[z].feeds[x].selected !== true;
-                    }
+    $(document).on('click', 'input.select-feed', function(event) {
+        for (z in nodes) {
+            for (x in nodes[z].feeds) {
+                if (nodes[z].feeds[x].id === event.target.dataset.id) {
+                    list.nodes[z].feeds[x].selected = nodes[z].feeds[x].selected !== true;
                 }
             }
-            draw(nodes)
-        })
+        }
     })
+})
     
-</script>
-    
-    
-<script>
-    var fake = '<tbody><tr><td>21</td><td>solarmodel</td><td>node abc</td><td><span style="color:rgb(255,0,0);">inactive</span></td><td>23</td></tr><tr><td>22</td><td>Power Example</td><td>node abc123</td><td><span style="color:rgb(255,0,0);">inactive</span></td><td>100</td></tr><tr><td>80</td><td>test 1</td><td>node abc123</td><td><span style="color:rgb(255,0,0);">inactive</span></td><td>100</td></tr><tr><td>81</td><td>node:emontx:power1</td><td>Node emontx</td><td><span style="color:rgb(255,0,0);">n/a</span></td><td>NULL</td></tr><tr><td>82</td><td>New Virtual Feed</td><td>Virtual</td><td><span style="color:rgb(255,0,0);">n/a</span></td><td>NULL</td></tr><tr><td>83</td><td>test description</td><td>Node emontx</td><td><span style="color:rgb(255,0,0);">inactive</span></td><td>100</td></tr><tr><td>84</td><td>abc</td><td>Node emontx</td><td><span style="color:rgb(255,0,0);">inactive</span></td><td>0</td></tr><tr><td>85</td><td>Power</td><td>Test</td><td><span style="color:rgb(255,0,0);">n/a</span></td><td>NULL</td></tr><tr><td>86</td><td>use</td><td>1</td><td><span style="color:rgb(255,0,0);">6 hrs</span></td><td>110</td></tr><tr><td>87</td><td>use_kwh</td><td>1</td><td><span style="color:rgb(255,0,0);">n/a</span></td><td>NULL</td></tr><tr><td>88</td><td>use</td><td>emontx</td><td><span style="color:rgb(255,0,0);">inactive</span></td><td>100</td></tr><tr><td>89</td><td>use_kwh</td><td>emontx</td><td><span style="color:rgb(255,0,0);">inactive</span></td><td>0</td></tr></tbody>'
-    $("#feeds-old-dev-only").html(fake)
 </script>
