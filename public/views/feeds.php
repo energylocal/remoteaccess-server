@@ -95,7 +95,7 @@
 var options = {
     username: '<?php echo $username; ?>', // load with AJAX would be better
     password: '<?php echo $password; ?>', // load with AJAX would be better
-    clientId: 'abc', // @todo: output 6 digit random hex number: eg a31bc1
+    clientId: 'mqttjs_' + '<?php echo $username; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
     port: 8083,
     ejectUnauthorized: false,
     host: "wss://mqtt.emoncms.org"
@@ -227,7 +227,6 @@ function getFeedsHtml(feeds) {
 
 function publish() {
     console.log("mqtt: requesting feed list");
-    client_id = "abc"
     var publish_options = {
         clientId: options.clientId,
         path: "/emoncms/feed/list.json"
