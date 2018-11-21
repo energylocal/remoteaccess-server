@@ -8,11 +8,11 @@
     }
     .list-group-item:before {
         content: "";
-        width: .6rem;
-        height: .6rem;
+        width: 13px;
+        height: 13px;
         right: .3rem;
         top: 50%;
-        margin-top: -.3rem;
+        margin-top: -.4rem;
         position: absolute;
         border-radius: 50%;
     }
@@ -29,10 +29,10 @@
         .list-group-item-success:before{
             background-color: #28A745;
         }
-        .list-group-item-danger:before{
+        .list-group-item-warning:before{
             background-color: #FFC107;
         }
-        .list-group-item-warning:before{
+        .list-group-item-danger:before{
             background-color: #DC3545;
         }
     }
@@ -45,26 +45,26 @@
         <h2 class="mb-1 mr-2 text-nowrap">Feed List</h2>
         <button id="toggle" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
     </div>
-    <nav id="feedlist-buttons" class="btn-toolbar d-flex justify-sm-content-end" role="toolbar" aria-label="feed buttons">
-        <div id="list-buttons" class="btn-group align-items-start mb-1" role="group" aria-label="Basic example">
+    <nav id="feedlist-buttons" v-if="Object.values(nodes).length > 0" class="btn-toolbar d-flex justify-sm-content-end" role="toolbar" aria-label="feed buttons">
+        <div id="list-buttons" class="btn-group align-items-start mb-1 xxxmr-1" role="group" aria-label="Basic example">
             <button id="collapse-all"
                 type="button"
-                onclick="collapseAll"
-                class="btn btn-outline-primary"
-                title=""
+                v-on:click="collapseAllNodes"
+                class="btn btn-outline-info"
+                title="collapse all devices"
                 data-toggle="tooltip">collapse
             </button>
             <button id="select-all"
                 type="button"
-                onclick="selectAll"
-                class="btn btn-outline-primary"
-                title="$t('message.selectall_help')"
+                v-on:click="selectAllFeeds"
+                class="btn btn-outline-info"
+                title="select all feeds"
                 data-toggle="tooltip"
             >select
             </button>
         </div>
         
-        <div id="feed-buttons" class="btn-group align-items-start ml-1 mb-1" role="group" aria-label="Feed Specific actions">
+        <div id="feed-buttons" class="d-none btn-group align-items-start mb-1" role="group" aria-label="Feed Specific actions">
             <button type="button" class="btn btn-info" disabled title="Edit selected feeds" data-toggle="tooltip">
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#edit"></use></svg>
             </button>
@@ -81,68 +81,92 @@
     </nav>
 </div>
 
-<p v-if="!connected" class="d-none d-sm-block">Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.</p>
-
+<p v-if="!connected" class="d-none d-sm-block">
+    Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data. 
+</p>
 
 <div id="feeds">
     <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
-        <strong>Loading:</strong> Remote feed list, please wait 5 seconds...
+        <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
     </div>
-    <div v-for="(node, index) in nodes" class="card dropup mb-1" :class="node.status">
-        <div class="card-header p-0" :id="'heading' + node.id">
-            <a href="#" class="d-flex no-gutters text-body justify-content-between py-2 no-underline'"
-                :class="{'collapsed': node.collapsed !== false}"
-                data-toggle="collapse" 
-                :data-target="'#collapse_' + node.id"
-                :aria-controls="'collapse_' + node.id">
+    <div v-for="(node, index) in nodes" 
+        v-bind:class="node.status"
+        class="card dropup mb-1"
+    >
+        <div class="card-header p-0" :id="'heading_' + node.id">
+            <a class="d-flex no-gutters text-body justify-content-between py-2 no-underline"
+               data-toggle="collapse"
+               v-bind:href="'#collapse_' + node.id" 
+               v-bind:class="{'collapsed': node.collapsed !== false}" 
+               v-bind:aria-controls="'collapse_' + node.id"
+            >
                 <div class="d-flex col justify-content-between">
                     <h5 class="col d-flex mb-0 col-md-8 col-xl-6">{{node.tag}}:
-                        <small v-if="hasSelectedFeeds(node.tag) > 0" class="font-weight-light text-muted">({{hasSelectedFeeds(node.tag)}})</small>
+                        <small v-if="hasSelectedFeeds(node.tag) > 0" class="font-weight-light text-muted">
+                            ({{hasSelectedFeeds(node.tag)}})
+                        </small>
                     </h5>
-                    <div class="col d-none d-sm-block ml-4 pl-4 pl-md-3 pl-lg-2 ml-xl-5 pl-xl-3 text-muted">{{node.size | prettySize}}</div>
+                    <div class="col d-none d-sm-block ml-4 pl-4 ml-md-0 pl-md-1 ml-lg-5 pl-lg-3 ml-xl-5 pl-xl-3 text-muted">
+                        {{node.size | prettySize}}
+                    </div>
                 </div>
-                <div class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right" v-html="list_format_updated(node.lastupdate)"></div>
+                <div class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right"
+                    v-html="list_format_updated(node.lastupdate)"
+                ></div>
             </a>
         </div>
             
-        <div :id="'collapse_' + node.id"
-            class="collapse"
-            :data-key="index"
-            :class="{'show': node.collapsed !== false}"
-            :aria-labelledby="'heading' + node.id">
-
+        <div class="collapse"
+            v-bind:id="'collapse_' + node.id"
+            v-bind:data-key="index"
+            v-bind:class="{'show': !node.collapsed}"
+            v-bind:aria-labelledby="'heading_' + node.id"
+        >
             <ul class="list-group list-group-flush">
-                <li v-for="feed in node.feeds" class="list-group-item pl-0" :class="getFeedClass(feed)" data-toggle="popover" :title="feed.id" data-content="@todo: fill tooltip">
+                <li class="list-group-item pl-0" 
+                    data-toggle="popover" 
+                    data-content="@todo: fill tooltip"
+                    v-for="feed in node.feeds" 
+                    v-bind:class="getFeedClass(feed)"
+                    v-bind:title="feed.id"
+                >
                     <div class="d-flex justify-content-between no-gutters">
-                        <div class="col col-8 col-md-9">
+                        <div class="col col-8 col-lg-9">
                             <div class="row no-gutters">
                             <div class="pl-3 pull-left">
                                 <div class="custom-control custom-checkbox text-center">
-                                <input :id="'select-feed-' + feed.id"
-                                    :selected="feed.selected"
-                                    :data-id="feed.id" 
-                                    class="custom-control-input select-feed" 
+                                <input class="custom-control-input select-feed" 
                                     type="checkbox" 
-                                    aria-label="select this item">
-                                <label :for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
+                                    aria-label="select this feed"
+                                    v-bind:id="'select-feed-' + feed.id"
+                                    v-bind:data-id="feed.id" 
+                                    v-model:selected="feed.selected"
+                                >
+                                <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
                                 </div>
                             </div>
-                            <div class="col text-truncate pl-1 col-md-4 col-lg-5 col-xl-4" :title="feed.name">{{feed.name}}</div>
-                            <div class="d-none col d-none d-sm-flex col-5 col-md-7 col-lg-5 col-xl-4">
-                                <div class="d-none d-sm-block pull-left" :title="{'Public': feed.public, 'Private': !feed.public}">
-                                    <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use :href="{'#lock-locked' : feed.public, '#lock-unlocked': !feed.public}"></use></svg>
+                            <div class="col text-truncate pl-1 col-md-5 col-xl-4" v-bind:title="feed.name">{{feed.name}}</div>
+                            <div class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
+                                <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
+                                    <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
+                                        <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
+                                    </svg>
                                 </div>
-                                <div class="col d-none d-md-block text-truncate col-5 col-md-6" :title="getEngineName(feed)">{{getEngineName(feed)}}</div>
-                                <div class="col d-none d-sm-block col-6 col-sm-10 col-md-4">{{feed.size | prettySize(feed.size) }}</div>
+                                <div class="col d-none d-md-block text-truncate col-5 col-md-6" v-bind:title="getEngineName(feed)">
+                                    {{getEngineName(feed)}}
+                                </div>
+                                <div class="col d-none d-sm-block col-6 col-sm-10 ml-lg-1 ml-xl-0">
+                                    {{feed.size | prettySize }}
+                                </div>
                             </div>
                             </div>
                         </div>
-                        <div class="col col-sm-4 col-md-3">
+                        <div class="col col-sm-4 col-lg-3">
                             <div class="row no-gutters">
-                            <div class="col text-right text-truncate pr-2">
-                                {{list_format_value(feed.value)}} {{feed.unit}}
-                            </div>
-                            <div class="col col-6 col-md-4 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
+                                <div class="col text-right text-truncate pr-2">
+                                    {{list_format_value(feed.value)}} {{feed.unit}}
+                                </div>
+                            <div class="col col-6 col-md-5 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
                             </div>
                         </div>
                     </div>
@@ -159,12 +183,15 @@
 <script src="js/vue.js"></script>
 
 <script>
-    var list = new Vue({
+    // global state for both vue instances
+    var state = {
+        nodes: [],
+        connected: false
+    }
+    // feed list
+    var app = new Vue({
         el: '#feeds',
-        data: {
-            nodes: [],
-            connected: false
-        },
+        data: state,
         methods: {
             list_format_updated: function(value) {
                 return list_format_updated(value);
@@ -189,25 +216,47 @@
             }
         }
     });
-
+    // feed list buttons
+    var app2 = new Vue({
+        el: '#feedlist-buttons',
+        data: state,
+        methods: {
+            collapseAllNodes: function() {
+                for(key in this.nodes) {
+                    let node = this.nodes[key]
+                    node.collapsed = true
+                }
+            },
+            selectAllFeeds: function() {
+                for(n in this.nodes) {
+                    let node = this.nodes[n];
+                    for(f in node.feeds) {
+                        let feed = node.feeds[f];
+                        feed.selected = true;                        
+                    }
+                }
+            }
+        }
+    })
 </script>
 <script>
 var options = {
     username: '<?php echo $session['username']; ?>', // load with AJAX would be better
-    password: '<?php echo $password; ?>', // load with AJAX would be better
-    clientId: 'mqttjs_' + '<?php echo $username; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
+    password: '<?php echo $session['password']; ?>', // load with AJAX would be better
+    clientId: 'mqttjs_' + '<?php $session['username']; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
     port: 8083,
     ejectUnauthorized: false,
     host: "wss://mqtt.emoncms.org"
 }
-// //DEV ONLY SETTINGS
-// var options = {
-//     username: '<?php echo $username; ?>', // load with AJAX would be better
-//     password: '<?php echo $password; ?>', // load with AJAX would be better
-//     clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),
-//     port: 9001,
-//     host: "ws://localhost"
-// }
+//DEV ONLY SETTINGS
+var options = {
+    username: '<?php echo $session['username']; ?>', // load with AJAX would be better
+    password: '<?php echo $session['password']; ?>', // load with AJAX would be better
+    clientId: 'mqttjs_' + Math.random().toString(16).substr(2, 8),
+    port: 9001,
+    host: "ws://localhost"
+    // host: "https://emrys-xps-15-9530.home"
+}
 
 options.will = {
     topic: 'user/' + options.username + '/response/' + options.clientId,
@@ -241,18 +290,15 @@ function connect() {
     })
     client.on('message', function (topic, message) {
         // message is Buffer
+        console.count("response received");
         var feeds = JSON.parse(message.toString());
-        // console.log(feeds);
-        nodes = processData(feeds);
-        console.log("response received");
-        // console.log('processed feeds into nodes', nodes)
-        list.nodes = nodes
-        // disconnect()
+        nodes = $.extend(nodes, getNodes(feeds));
+        state.nodes = nodes
     })
 }
 
 function publish() {
-    console.log("mqtt: requesting feed list");
+    console.count("mqtt: requesting feed list");
     var publish_options = {
         clientId: options.clientId,
         path: "/emoncms/feed/list.json"
@@ -290,29 +336,12 @@ function getEngineName(feed) {
     }
     return engines[feed.engine]
 }
-function isSelected(feed_id) {
-    // return true if checked
-    checkbox = document.querySelector('[data-id = "' + feed_id + '"]');
-    if (checkbox) {
-        return checkbox.checked
-    } else {
-        return false
-    }
-}
+
 function camelCase(str) {
     // @todo: return string suitable to be used as an object property name
     return str.toLowerCase().replace(' ','_')
 }
-function isCollapsed(tag) {
-    // return true if tag (group) is collapsed
-    for (z in nodes) {
-        let node = nodes[z];
-        if(node.tag===tag) {
-            return node.collapsed;
-        }
-    }
-    return true; // defaults to closed
-}
+
 function hasSelectedFeeds(tag) {
     // @todo: return number of selected feeds in node
     var count = 0
@@ -345,81 +374,57 @@ function prettySize(bytes) {
 function getFeedClass(feed) {
     var lastUpdated = new Date(feed.time * 1000);
     var now = new Date().getTime();
-    var elapsed = (now - lastUpdated / 1000);
-    var steps = elapsed / feed.interval;
+    var elapsed = (now - lastUpdated) / 1000;
+    var missedIntervals = parseInt(elapsed / feed.interval);
     var css_class = 'list-group-item-success';
-    if (steps > 2) {
+    if (missedIntervals > 8) {
+        var css_class = 'list-group-item-danger';
+    } else if (missedIntervals > 2) {
         var css_class = 'list-group-item-warning';
-    } else if (steps > 8) {
-        var css_class = 'list-group-item-success';
     }
     return css_class;
 }
-
-function processData(data) {
-    var nodes = {}
-    for (let key in data) {
-        let feed = data[key]
-        // create array of nodes with array of feeds as a property of each node
-        feed.selected = isSelected(feed.id)
-        feed.public = feed.public === '1'
-        if (!nodes[feed.tag]) {
-            nodes[feed.tag] = {
+// return feeds grouped by tag/node.
+function getNodes(feeds) {
+    var _nodes = {}; // create local version of nodes as object
+    for (key in feeds) {
+        let feed = feeds[key];
+        feed.public = feed.public === '1';
+        feed.selected = feed.selected === true;
+        // only create the node if it doesn't already exist
+        if (!_nodes[feed.tag]) {
+            _nodes[feed.tag] = {
                 tag: feed.tag,
                 id: camelCase(feed.tag),
-                collapsed: isCollapsed(feed.tag),
-                size: 0,
-                lastupdate: 0,
-                feeds: [],
+                feeds: {},
                 status: 'warning'
             }
+        } else {
+            // _nodes[feed.tag].feeds[key].selected = true
+            console.log(typeof nodes)
         }
-        
-        nodes[feed.tag].size += parseInt(feed.size)
-        nodes[feed.tag].lastupdate = parseInt(feed.time) > nodes[feed.tag].lastupdate ? parseInt(feed.time) : nodes[feed.tag].lastupdate
-        
-        nodes[feed.tag].feeds.push(feed)
-        // @todo: set node.status to [success,warning,danger] dependant on feed interval and feed last_update time
-        // console.log((new Date().valueOf() / 1000) - nodes[feed.tag].lastupdate)
-        
-        if ((new Date().valueOf() / 1000) - nodes[feed.tag].lastupdate < 400) {
-            nodes[feed.tag].status = 'success'
-        }
-        if ((new Date().valueOf() / 1000) - nodes[feed.tag].lastupdate > 10000) {
-            nodes[feed.tag].status = 'danger'
-        }
+        // add to a node's details as each feed is added
+        _nodes[feed.tag].collapsed = typeof _nodes[feed.tag].collapsed != 'undefined' ? _nodes[feed.tag].collapsed : true;
+        // add the current feed to the node's feed list
+        _nodes[feed.tag].feeds[feed.id] = feed;
+        // console.log(key,feed.selected,(_nodes[feed.tag] ? _nodes[feed.tag].feeds[key].selected : 'blah'));
+
     }
-    nodes = Object.values(nodes)
-    return nodes
-}
 
-function selectAll() {
-    // todo: mark checked all checkboxes with class select-feed
-}
-function collapseAll() {
-    // todo: mark all accordions as collapse
-}
-
-// JQUERY TO CALL BOOTSTRAP JAVASCRIPT 
-$(function () {
-    
-    $('[data-toggle="popover"]').popover()
-    // store accordion state as property of the nodes array item
-    $(document).on('show.bs.collapse hide.bs.collapse', function(event) {
-        var key = $(event.target).data('key');
-        var value = nodes[key].collapsed || true
-        list.nodes[key].collapsed = !value;
-    })
-
-    $(document).on('click', 'input.select-feed', function(event) {
-        for (z in nodes) {
-            for (x in nodes[z].feeds) {
-                if (nodes[z].feeds[x].id === event.target.dataset.id) {
-                    list.nodes[z].feeds[x].selected = nodes[z].feeds[x].selected !== true;
-                }
-            }
+    // total up the node's feed values
+    for (n in _nodes) {
+        let node = _nodes[n];
+        let lastupdate = 0;
+        let size = 0;
+        
+        for (f in node.feeds) {
+            let feed = node.feeds[f];
+            size += parseInt(feed.size);
+            lastupdate = parseInt(feed.time) > lastupdate ? parseInt(feed.time) : lastupdate;
         }
-    })
-})
-    
+        node.size = size;
+        node.lastupdate = lastupdate;
+    }
+    return _nodes;
+}
 </script>
