@@ -11,24 +11,25 @@
 
     <nav class="navbar sticky-top navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">EmonLocal</a>
+            <a class="navbar-brand" href="<?php _url('') ?>">EmonLocal</a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav mr-auto">
-                <li class="nav-item active">
-                    <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">About</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Contact</a>
-                </li>
-            </ul>
+                    <?php 
+                    _navlink('Feeds', 'feeds');
+                    _navlink('Minimal', 'minimal');
+                    _navlink('Vue Test', 'vuetest');
 
+                    if($session["valid"]===true){
+                        _navlink('Logout','logout');
+                    } else {
+                        _navlink('Login','login');
+                    }
+                    ?>
+                </ul>
             </div>
         </div>
     </nav>
@@ -41,6 +42,7 @@
         Q1.(emrys)?: how do i add non-blocking global js withiout it running before the container?
     */
     ?>
+
     <svg id="svgs" xmlns="http://www.w3.org/2000/svg" class="d-none">
       <symbol id="lock-locked"><path d="M3 0c-1.1 0-2 .9-2 2v1h-1v4h6v-4h-1v-1c0-1.1-.9-2-2-2zm0 1c.56 0 1 .44 1 1v1h-2v-1c0-.56.44-1 1-1z" transform="translate(1)" /></symbol>
       <symbol id="lock-unlocked"><path d="M3 0c-1.1 0-2 .9-2 2h1c0-.56.44-1 1-1s1 .44 1 1v2h-4v4h6v-4h-1v-2c0-1.1-.9-2-2-2z" transform="translate(1)" /></symbol>

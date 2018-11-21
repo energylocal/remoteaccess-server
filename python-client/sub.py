@@ -12,8 +12,8 @@ import paho.mqtt.client as paho
 #-----------------------------------------------------------
 
 username = "emrys" # mqtt authentication
-password = "emrys" # mqtt authentication
-apikey = "emrys" # local emoncms api key
+password = "" # mqtt authentication
+apikey = "" # local emoncms api key
 port = 8883
 
 #-----------------------------------------------------------
@@ -40,20 +40,20 @@ mqtt = {
     "tls" : True,
     "clientId" : client_id
 }
-# mqtt = {
-#     "host" : "localhost",
-#     "username" : '',
-#     "password" : '',
-#     "port" : 1883,
-#     "pubTopic" : "user/%s/response/" % username,
-#     "subTopic" : "user/%s/request" % username,
-#     "retry" : 5,
-#     "delay" : 2,
-#     "counter" : 0,
-#     "client" : None,
-#     "tls" : False,
-#     "clientId" : client_id
-# }
+mqtt = {
+    "host" : "localhost",
+    "username" : '',
+    "password" : '',
+    "port" : 1883,
+    "pubTopic" : "user/%s/response/" % username,
+    "subTopic" : "user/%s/request" % username,
+    "retry" : 5,
+    "delay" : 2,
+    "counter" : 0,
+    "client" : None,
+    "tls" : False,
+    "clientId" : client_id
+}
 
 # emoncms settings
 emoncms = {
