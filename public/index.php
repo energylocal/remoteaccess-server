@@ -29,7 +29,11 @@ switch ($q)
     case "feeds":
         $format = "themedhtml";
         if ($session["valid"]) {
+<<<<<<< HEAD
             $content = view("views/feeds.php", array("session"=>$session));
+=======
+            $content = view("views/feeds.php",array("session"=>$session));
+>>>>>>> 9257df7f1791e66375b0291690bd96dc14768c22
         } else {
             $content = view("views/login_view.php");
         }
