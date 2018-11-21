@@ -241,23 +241,15 @@
 </script>
 <script>
 var session = <?php echo json_encode($session); ?>;
+var settings = <?php echo json_encode($settings); ?>;
 
 var options = {
-    username: '<?php echo $session['username']; ?>', // load with AJAX would be better
-    password: '<?php echo $session['password']; ?>', // load with AJAX would be better
-    clientId: 'mqttjs_' + '<?php $session['username']; ?>' + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
-    port: 8083,
-    ejectUnauthorized: false,
-    host: "wss://mqtt.emoncms.org"
+    username: session.username,
+    password: session.password,
+    clientId: 'mqttjs_' + session.username + '_' + Math.random().toString(16).substr(2, 8),
+    port: settings.port,
+    host: settings.host
 }
-// //DEV ONLY SETTINGS
-// var options = {
-//     username: session.username,
-//     password: session.password,
-//     clientId: 'mqttjs_' + session.username + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
-//     port: 9001,
-//     host: "ws://localhost"
-// }
 
 options.will = {
     topic: 'user/' + options.username + '/response/' + options.clientId,

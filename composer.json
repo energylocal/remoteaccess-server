@@ -1,0 +1,13 @@
+{
+    "name": "emoncms/emon-local",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Emrys",
+            "email": "emrys@openenergymonitor.org"
+        }
+    ],
+    "require": {
+        "vlucas/phpdotenv": "^2.5"
+    }
+}

@@ -6,20 +6,31 @@ import time
 import ssl
 import requests as requests
 import paho.mqtt.client as paho
+import os
+from os import path, getenv
+from dotenv import load_dotenv
+
+_dir = path.dirname(path.dirname(path.abspath(__file__)))
+# Load file from the path.
+dotenv_path = path.join(_dir, '.env')
+# Load local dev version if exists
+if path.isfile(path.join(_dir, '.env.dev')) :
+    dotenv_path = path.join(_dir, '.env.dev')
+
+load_dotenv(dotenv_path)
 
 #-----------------------------------------------------------
 #-      SETTINGS
 #-----------------------------------------------------------
 
-username = "emrys" # mqtt authentication
-password = "" # mqtt authentication
-apikey = "" # local emoncms api key
-port = 8883
+host = getenv('MQTT_HOST')
+username = getenv('MQTT_USERNAME')
+password = getenv('MQTT_PASSWORD')
+apikey = getenv('EMONCMS_APIKEY')
+port = int(getenv('MQTT_PORT'))
+tls = getenv('MQTT_TLS').lower() == 'true'
 
 #-----------------------------------------------------------
-
-
-
 
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
@@ -27,7 +38,7 @@ logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 #mqtt production settings
 client_id = "%s_python" % username
 mqtt = {
-    "host" : "mqtt.emoncms.org",
+    "host" : host,
     "username" : username,
     "password" : password,
     "port" : port,
@@ -37,21 +48,7 @@ mqtt = {
     "delay" : 2,
     "counter" : 0,
     "client" : None,
-    "tls" : True,
-    "clientId" : client_id
-}
-mqtt = {
-    "host" : "localhost",
-    "username" : '',
-    "password" : '',
-    "port" : 1883,
-    "pubTopic" : "user/%s/response/" % username,
-    "subTopic" : "user/%s/request" % username,
-    "retry" : 5,
-    "delay" : 2,
-    "counter" : 0,
-    "client" : None,
-    "tls" : False,
+    "tls" : tls,
     "clientId" : client_id
 }
 
@@ -251,29 +248,8 @@ def setTLS(tls_version=None):
 
     """
     global mqtt
-    if not hasattr(ssl, 'SSLContext'):
-        # Require Python version that has SSL context support in standard library
-        raise ValueError('Python 2.7.9 and 3.2 are the minimum supported versions for TLS.')
-
-    # Create SSLContext object
-    if tls_version is None:
-        tls_version = ssl.PROTOCOL_TLSv1
-        # If the python version supports it, use highest TLS version automatically
-        if hasattr(ssl, "PROTOCOL_TLS"):
-            tls_version = ssl.PROTOCOL_TLS
-
-    context = ssl.SSLContext(tls_version)
-
     logging.info('-- SETTING TLS settings')
-    
     mqtt["client"].tls_set(ca_certs="/usr/share/ca-certificates/mozilla/DST_Root_CA_X3.crt")
-    # mqtt["client"].tls_set(ca_certs="/home/emrys/tmp/mqtt/certs/mqtt.emoncms.org")
-    # mqtt["client"].tls_set(ca_certs="/home/emrys/tmp/mqtt/certs/mqtt.emoncms.org/fullchain.pem")
-    mqtt["client"].tls_insecure_set(True)
-    
-    # @todo get this cert to work!
-
-    # mqtt["client"].tls_set(ca_certs=None,certfile="/home/emrys/.ssh/mqtt/m2mqtt_ca.crt",keyfile=None,cert_reqs=ssl.CERT_NONE,tls_version=ssl.PROTOCOL_TLSv1)
 
 def connect():
     """ calls the mqtt client connection method 
@@ -281,15 +257,15 @@ def connect():
         counts number of connection attempts
     """
     global mqtt
-    mqtt["client"].enable_logger(logger=logging)
+    # mqtt["client"].enable_logger(logger=logging)
 
-    if mqtt["tls"]:
-        context = setTLS()
+    if mqtt["tls"] == True:
+        setTLS()
 
     logging.debug("Attempt %s" % mqtt["counter"])
     mqtt["counter"] += 1
     mqtt["client"].username_pw_set(mqtt["username"], mqtt["password"])
-    mqtt["client"].connect(mqtt["host"], mqtt["port"], 60)  # connect
+    mqtt["client"].connect(mqtt["host"], mqtt["port"], 60) # connect
 
 def merge_two_dicts(x, y):
     z = x.copy()   # start with x's keys and values

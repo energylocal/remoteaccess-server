@@ -1,6 +1,23 @@
 <?php
 define('DEBUG', true);
+// load composer's autoloader
+require dirname(__DIR__) . '/vendor/autoload.php';
 
+// load the .env settngs file
+if(file_exists(dirname(__DIR__) . '/.env.dev')) {
+    $dotenv = new Dotenv\Dotenv(dirname(__DIR__), '/.env.dev');
+} else {
+    $dotenv = new Dotenv\Dotenv(dirname(__DIR__));
+}
+// parse to the $_ENV array
+$dotenv->load();
+
+// use the .env file options
+$settings = array(
+    'host' => (string) $_ENV['WS_HOST'],
+    'port' => (int) $_ENV['WS_PORT'],
+    'tls' => strtolower($_ENV['WS_TLS']) === 'true' || $_ENV['WS_TLS'] === true
+);
 include "lib/core.php";
 
 if (DEBUG) {
@@ -29,11 +46,7 @@ switch ($q)
     case "feeds":
         $format = "themedhtml";
         if ($session["valid"]) {
-<<<<<<< HEAD
-            $content = view("views/feeds.php", array("session"=>$session));
-=======
-            $content = view("views/feeds.php",array("session"=>$session));
->>>>>>> 9257df7f1791e66375b0291690bd96dc14768c22
+            $content = view("views/feeds.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
         }
@@ -42,7 +55,7 @@ switch ($q)
     case "minimal":
         $format = "themedhtml";
         if ($session["valid"]) {
-            $content = view("views/minimal.php", array("session"=>$session));
+            $content = view("views/minimal.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
         }
@@ -51,7 +64,7 @@ switch ($q)
     case "vuetest":
         $format = "themedhtml";
         if ($session["valid"]) {
-            $content = view("views/vuetest.php", array("session"=>$session));
+            $content = view("views/vuetest.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
         }
