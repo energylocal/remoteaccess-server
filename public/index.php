@@ -1,29 +1,20 @@
 <?php
 define('DEBUG', true);
-// load composer's autoloader
-require dirname(__DIR__) . '/vendor/autoload.php';
-
-// load the .env settngs file
-if(file_exists(dirname(__DIR__) . '/.env.dev')) {
-    $dotenv = new Dotenv\Dotenv(dirname(__DIR__), '/.env.dev');
-} else {
-    $dotenv = new Dotenv\Dotenv(dirname(__DIR__));
-}
-// parse to the $_ENV array
-$dotenv->load();
-
-// use the .env file options
-$settings = array(
-    'host' => (string) $_ENV['WS_HOST'],
-    'port' => (int) $_ENV['WS_PORT'],
-    'tls' => strtolower($_ENV['WS_TLS']) === 'true' || $_ENV['WS_TLS'] === true
-);
-include "lib/core.php";
 
 if (DEBUG) {
     error_reporting(E_ALL);
     ini_set('display_errors', 'on');
 }
+
+include "lib/core.php";
+
+$settings_dir = dirname(__DIR__) . DIRECTORY_SEPARATOR;
+include $settings_dir . "settings.php";
+// use local dev version if available
+if (file_exists( $settings_dir . "settings.dev.php")) {
+    include $settings_dir . "settings.dev.php";
+}
+$settings = isset($settings) ? $settings : array();
 // Basic session
 session_start();
 $session = array("valid"=>false, "username"=>false,"password"=>false);
