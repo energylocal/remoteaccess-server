@@ -84,12 +84,22 @@
 <p v-if="!connected" class="d-none d-sm-block">
     Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data. 
 </p>
+<hr>
+<div id="info">
+{{privateState.message}} {{Object.values(sharedState.nodes).length}}
+<br>
+<ul>
+<li v-for="(node,key) in sharedState.nodes">
+{{key}} = {{Object.values(node.feeds).length}} ({{ selected(node) }})</li>
+</ul>
+</div>
 
+<hr>
 <div id="feeds">
     <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
         <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
     </div>
-    <div v-for="(node, index) in nodes" 
+    <div v-for="(node, node_id) in nodes" 
         v-bind:class="node.status"
         class="card dropup mb-1"
     >
@@ -101,7 +111,7 @@
                v-bind:aria-controls="'collapse_' + node.id"
             >
                 <div class="d-flex col justify-content-between">
-                    <h5 class="col d-flex mb-0 col-md-8 col-xl-6">{{node.tag}}:
+                    <h5 class="col d-flex mb-0 col-md-8 col-xl-6">{{node.tag}} [{{node.collapsed}}]:
                         <small v-if="hasSelectedFeeds(node.tag) > 0" class="font-weight-light text-muted">
                             ({{hasSelectedFeeds(node.tag)}})
                         </small>
@@ -115,10 +125,10 @@
                 ></div>
             </a>
         </div>
-            
+  
         <div class="collapse"
             v-bind:id="'collapse_' + node.id"
-            v-bind:data-key="index"
+            v-bind:data-key="node_id"
             v-bind:class="{'show': !node.collapsed}"
             v-bind:aria-labelledby="'heading_' + node.id"
         >
@@ -126,7 +136,7 @@
                 <li class="list-group-item pl-0" 
                     data-toggle="popover" 
                     data-content="@todo: fill tooltip"
-                    v-for="feed in node.feeds" 
+                    v-for="(feed, feed_id) in node.feeds" 
                     v-bind:class="getFeedClass(feed)"
                     v-bind:title="feed.id"
                 >
@@ -134,13 +144,15 @@
                         <div class="col col-8 col-lg-9">
                             <div class="row no-gutters">
                             <div class="pl-3 pull-left">
+                            {{feed.selected}}
                                 <div class="custom-control custom-checkbox text-center">
                                 <input class="custom-control-input select-feed" 
                                     type="checkbox" 
                                     aria-label="select this feed"
                                     v-bind:id="'select-feed-' + feed.id"
                                     v-bind:data-id="feed.id" 
-                                    v-model:selected="feed.selected"
+                                    v-bind:selected="getFeedProp(feed, 'selected')"
+                                    v-on:change="setFeedProp(feed ,'selected', $event.target.value)"
                                 >
                                 <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
                                 </div>
@@ -184,24 +196,170 @@
 
 <script>
     // global state for both vue instances
-    var state = {
-        nodes: [],
-        connected: false
+    var store = {
+        debug: true,
+        state: {
+            nodes: {},
+            connected: false
+        },
+        setNodes: function(nodes) {
+            if (this.debug) console.log('setNodes() triggered with', nodes)
+            this.state.nodes = nodes;
+        },
+        getNodes: function() {
+            if (this.debug) console.log('getNodes() triggered')
+            return this.state.nodes;
+        },
+        setFeedProp: function(feed, prop, newVal) {
+            if (this.debug) console.log('selectFeed() triggered with', feed, prop, newVal)
+            this.state.nodes[feed.tag].feeds[feed.id][prop] = newVal;
+        },
+        collapseNode: function(node_id, newVal){
+            if (this.debug) console.log('collapseNode() triggered with', node_id, newVal)
+            this.state.nodes[node_id].collapsed = newVal
+        }
     }
+
+
+
+	/**
+	 * A simple forEach() implementation for Arrays, Objects and NodeLists
+	 * @private
+	 * @param {Array|Object|NodeList} collection Collection of items to iterate
+	 * @param {Function} callback Callback function for each iteration
+	 * @param {Array|Object|NodeList} scope Object/NodeList/Array that forEach is iterating over (aka `this`)
+     * @see https://gist.github.com/cferdinandi/ece94569aefcffa5f7fa#file-umd-script-boilerplate-js-L50
+	 */
+	var forEach = function (collection, callback, scope) {
+		if (Object.prototype.toString.call(collection) === '[object Object]') {
+			for (var prop in collection) {
+				if (Object.prototype.hasOwnProperty.call(collection, prop)) {
+					callback.call(scope, collection[prop], prop, collection);
+				}
+			}
+		} else {
+			for (var i = 0, len = collection.length; i < len; i++) {
+				callback.call(scope, collection[i], i, collection);
+			}
+		}
+    };
+    /**
+	 * Merge defaults with user options
+	 * @private
+	 * @param {Object} defaults Default settings
+	 * @param {Object} options User options
+	 * @returns {Object} Merged values of defaults and options
+     * @see https://gist.github.com/cferdinandi/ece94569aefcffa5f7fa#file-umd-script-boilerplate-js-L50
+	 */
+	var extend = function ( defaults, options ) {
+		var extended = {};
+		forEach(defaults, function (value, prop) {
+            extended[prop] = defaults[prop];
+		});
+		forEach(options, function (value, prop) {
+			extended[prop] = options[prop];
+		});
+		return extended;
+    };
+
+
+
+
+
+
+
+    var app = new Vue({
+        el: '#info',
+        data: {
+            privateState: {
+                message: 'number of nodes: '
+            },
+            sharedState: store.state
+        },
+        methods: {
+            selected: function(node) {
+                var counter = 0;
+                for (f in node.feeds) {
+                    let feed = node.feeds[f]
+                    if(feed.selected) counter ++
+                }
+                return counter;
+            }
+        }
+    })
+
+    
+
+    function debug() {
+        for(a in arguments) {
+            console.log(JSON.parse(JSON.stringify(arguments[a])))
+        }
+    }
+
+    function mapFeeds(feeds) {
+        var nodes = store.getNodes();
+        for (key in feeds) {
+            let feed = feeds[key];
+            if(typeof nodes[feed.tag] === 'undefined') {
+                nodes[feed.tag] = {
+                    tag: feed.tag,
+                    id: camelCase(feed.tag)
+                }
+            }
+            // only create the node if it doesn't already exist
+            if(typeof nodes[feed.tag].feeds === 'undefined'){
+                nodes[feed.tag].feeds = {}
+            }
+            // add the feed to the parent node
+            nodes[feed.tag].feeds[feed.id] = feed;
+        }
+
+        // total up the node's feed properties
+        for (n in nodes) {
+            let lastupdate = 0;
+            let size = 0;
+            
+            for (f in nodes[n].feeds) {
+                let feed = nodes[n].feeds[f];
+                size += parseInt(feed.size);
+                lastupdate = parseInt(feed.time) > lastupdate ? parseInt(feed.time) : lastupdate;
+                if(feeds[8] && feeds[8].selected) console.log(JSON.parse(JSON.stringify(feeds[8].selected)))
+                //debug(feeds['8'].selected);
+                //debug(nodes['1'].feeds['86'].selected);
+                if(typeof feed.selected === 'undefined') feed.selected = false;
+            }
+            // add to a nodes[n]'s details as each feed is added
+            nodes[n].collapsed = typeof nodes[n].collapsed != 'undefined' ? nodes[n].collapsed : true;
+            // add the current feed to the nodes[n]'s feed list
+            // console.log(key,feed.selected,(nodes[n]s[feed.tag] ? nodes[n]s[feed.tag].feed.selected : 'blah'));
+            nodes[n].size = size;
+            nodes[n].lastupdate = lastupdate;
+        }
+        // clean issue with nodejs not handling plain objects as expected
+        return extend({}, nodes);
+    }
+
     // feed list
     var app = new Vue({
         el: '#feeds',
-        data: state,
+        data: store.state,
         methods: {
             list_format_updated: function(value) {
                 return list_format_updated(value);
             },
             list_format_value: function(value) {
                 return list_format_value(value);
+            },
+            getFeedProp: function(feed, prop){
+                return this.nodes[feed.tag].feeds[feed.id][prop];
+            },
+            setFeedProp: function(feed, prop, newVal) {
+                store.setFeedProp(feed, prop, newVal);
             }
         },
         filters: {
             prettySize: function (bytes) {
+                bytes = bytes || 0;
                 var decimals = 0
                 var size = new Number(bytes).toFixed(decimals) + 'B';
                 var length = bytes.toString().length
@@ -216,10 +374,17 @@
             }
         }
     });
+
+
+
+
+
+
+
     // feed list buttons
     var app2 = new Vue({
         el: '#feedlist-buttons',
-        data: state,
+        data: store.state,
         methods: {
             collapseAllNodes: function() {
                 for(key in this.nodes) {
@@ -238,6 +403,24 @@
             }
         }
     })
+
+
+
+
+
+// jquery accordion
+$(function(){
+    $('#feeds').on('hidden.bs.collapse', '.collapse', function (event) {
+        var node_id = $(this).data('key');
+        store.collapseNode(node_id, true)
+    })
+    $('#feeds').on('shown.bs.collapse', '.collapse', function (event) {
+        var node_id = $(this).data('key');
+        store.collapseNode(node_id, false)
+    })
+})
+
+
 </script>
 <script>
 var session = <?php echo json_encode($session); ?>;
@@ -258,7 +441,6 @@ options.will = {
     retain: false
 };
 
-var nodes = false;
 var pubInterval = null
 
 // auto connect on load:
@@ -281,12 +463,14 @@ function connect() {
             }
         })
     })
-    client.on('message', function (topic, message) {
-        // message is Buffer
-        console.count("response received");
+    /** 
+    * @arg String topic 
+    * @arg Buffer message
+    */
+    client.on('message', function(topic, message) {
         var feeds = JSON.parse(message.toString());
-        nodes = $.extend(nodes, getNodes(feeds));
-        state.nodes = nodes
+        var nodes = mapFeeds(feeds);
+        store.setNodes(nodes);
     })
 }
 
@@ -338,10 +522,10 @@ function camelCase(str) {
 function hasSelectedFeeds(tag) {
     // @todo: return number of selected feeds in node
     var count = 0
-    for (z in nodes) {
-        if(nodes[z].tag===tag) {
-            for (x in nodes[z].feeds) {
-                if (nodes[z].feeds[x].selected) {
+    for (z in store.nodes) {
+        if(store.nodes[z].tag===tag) {
+            for (x in store.nodes[z].feeds) {
+                if (store.nodes[z].feeds[x].selected) {
                     count ++;
                 }
             }
@@ -377,47 +561,5 @@ function getFeedClass(feed) {
     }
     return css_class;
 }
-// return feeds grouped by tag/node.
-function getNodes(feeds) {
-    var _nodes = {}; // create local version of nodes as object
-    for (key in feeds) {
-        let feed = feeds[key];
-        feed.public = feed.public === '1';
-        feed.selected = feed.selected === true;
-        // only create the node if it doesn't already exist
-        if (!_nodes[feed.tag]) {
-            _nodes[feed.tag] = {
-                tag: feed.tag,
-                id: camelCase(feed.tag),
-                feeds: {},
-                status: 'warning'
-            }
-        } else {
-            // _nodes[feed.tag].feeds[key].selected = true
-            console.log(typeof nodes)
-        }
-        // add to a node's details as each feed is added
-        _nodes[feed.tag].collapsed = typeof _nodes[feed.tag].collapsed != 'undefined' ? _nodes[feed.tag].collapsed : true;
-        // add the current feed to the node's feed list
-        _nodes[feed.tag].feeds[feed.id] = feed;
-        // console.log(key,feed.selected,(_nodes[feed.tag] ? _nodes[feed.tag].feeds[key].selected : 'blah'));
 
-    }
-
-    // total up the node's feed values
-    for (n in _nodes) {
-        let node = _nodes[n];
-        let lastupdate = 0;
-        let size = 0;
-        
-        for (f in node.feeds) {
-            let feed = node.feeds[f];
-            size += parseInt(feed.size);
-            lastupdate = parseInt(feed.time) > lastupdate ? parseInt(feed.time) : lastupdate;
-        }
-        node.size = size;
-        node.lastupdate = lastupdate;
-    }
-    return _nodes;
-}
 </script>
