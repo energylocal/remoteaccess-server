@@ -208,7 +208,8 @@
         },
         getNodes: function() {
             if (this.debug) console.log('getNodes() triggered')
-            return this.state.nodes;
+            // correct issue with nodejs not handling plain objects as expected
+            return extend({}, this.state.nodes);
         },
         setFeedProp: function(feed, prop, newVal) {
             if (this.debug) console.log('selectFeed() triggered with', feed, prop, newVal)
@@ -335,8 +336,7 @@
             nodes[n].size = size;
             nodes[n].lastupdate = lastupdate;
         }
-        // clean issue with nodejs not handling plain objects as expected
-        return extend({}, nodes);
+        return nodes;
     }
 
     // feed list
