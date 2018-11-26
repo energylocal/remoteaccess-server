@@ -61,6 +61,15 @@ switch ($q)
         }
         break;
 
+    case "graph":
+        $format = "themedhtml";
+        if ($session["valid"]) {
+            $content = view("views/graph.php", array("settings"=>$settings,"session"=>$session));
+        } else {
+            $content = view("views/login_view.php");
+        }
+        break;
+
     // json api route
     case "auth":
         $format = "json";

@@ -67,7 +67,7 @@
             </button>
         </div>
 
-        <div id="feed-buttons" :class="{'d-none': store.totalSelectedFeeds() == 0}" class="btn-group align-items-start mb-1 ml-1" role="group" aria-label="Feed Specific actions">
+        <div id="feed-buttons" :class="{'d-none': store.getSelectedFeeds().length == 0}" class="btn-group align-items-start mb-1 ml-1" role="group" aria-label="Feed Specific actions">
             <button type="button" class="btn btn-info" title="Edit selected feeds" @click="editFeeds">
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#edit"></use></svg>
             </button>
@@ -105,8 +105,8 @@
             >
                 <div class="d-flex col justify-content-between">
                     <h5 class="col d-flex mb-0 col-md-8 col-xl-6">{{node.tag}} :
-                        <small v-if="store.totalSelectedFeeds(node_id) > 0" class="font-weight-light text-muted">
-                            ({{ store.nodeSelectedFeeds(node_id) }})
+                        <small v-if="store.getNodeSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted">
+                            ({{ store.getNodeSelectedFeeds(node_id).length }})
                         </small>
                     </h5>
                     <div class="col d-none d-sm-block ml-4 pl-4 ml-md-0 pl-md-1 ml-lg-5 pl-lg-3 ml-xl-5 pl-xl-3 text-muted">
@@ -219,22 +219,27 @@
             }
             return totalFeeds;
         },
-        nodeSelectedFeeds: function(tag) {
-            var totalSelected = 0;
+        // return array of selected feeds for a given tag
+        getNodeSelectedFeeds: function(tag) {
+            var selected = [];
             let node = this.state.nodes[tag];
             for(f in node.feeds) {
                 let feed = node.feeds[f];
-                if(feed.selected === true) totalSelected++;
+                if(feed.selected === true) selected.push(feed);
             }
-            return totalSelected;
+            return selected;
         },
-        totalSelectedFeeds: function() {
-            var totalSelected = 0;
+        // return array of all selected feeds
+        getSelectedFeeds: function() {
+            var selected = [];
             for(n in this.state.nodes) {
-                totalSelected += this.nodeSelectedFeeds(n);
+                let nodeSelectedFeeds = this.getNodeSelectedFeeds(n);
+                for(s in nodeSelectedFeeds){
+                    selected.push(nodeSelectedFeeds[s]);
+                }
             }
-            return totalSelected;
-        }
+            return selected;
+        },
     }
     // return new object with each feed tag as individual object with "feeds" property
     function groupFeeds(feeds) {
@@ -326,7 +331,7 @@
             },
             // if all feeds selected, select none; else select all.
             toggleSelectAllFeeds: function() {
-                var totalSelected = store.totalSelectedFeeds();
+                var totalSelected = store.getSelectedFeeds().length;
                 var totalFeeds = store.totalFeeds();
                 var state = totalSelected < totalFeeds;
                 // change feed state
@@ -356,6 +361,9 @@
             viewFeeds: function(event) {
                 if (store.debug) console.log('view() triggered with', event);
                 event.preventDefault();
+                var selected = store.getSelectedFeeds();
+                var feed = selected[0];
+                window.location.href = 'graph?id=' + feed.id + '&name=' + feed.name;
                 // @todo
             }
         }
@@ -381,7 +389,7 @@
 </script>
 
 <script>
-// Plain JS functions
+// Plain JS Mqtt functions
 var DEBUG = store.debug || false;
 // session variables
 var session = <?php echo json_encode($session); ?>;
@@ -409,6 +417,10 @@ var pubInterval = null
 
 // auto connect on load:
 connect();
+
+window.addEventListener('beforeunload', function (event) {
+    disconnect();
+}, false);
 
 // connect to mqtt broker
 // add callback function to run when subscribed topic messages arrive

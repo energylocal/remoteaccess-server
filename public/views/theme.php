@@ -22,6 +22,7 @@
                     _navlink('Feeds', 'feeds');
                     _navlink('Minimal', 'minimal');
                     _navlink('Vue Test', 'vuetest');
+                    _navlink('Graph', 'graph');
 
                     if($session["valid"]===true){
                         _navlink('Logout','logout');
