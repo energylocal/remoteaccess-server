@@ -26,7 +26,30 @@
     .no-underline {
         text-decoration: none !important
     }
-
+    .animate{
+        transition: all .44s ease-in-out;
+    }
+    .col-hidden {
+        flex-grow: 0;
+        width: 0;
+        overflow: hidden;
+    }
+    .wide {
+        flex-grow: 0;
+        width: 75%;
+    }
+    .narrow {
+        flex-grow: 1;
+        width: 25%;
+    }
+    .narrow .d-narrow-none {
+        display: none;
+    }
+    .w-100{
+        width: 100%!important;
+        max-width: 100%!important;
+        flex: 0 0 100%!important;
+    }
     /* show feed update status as red,yellow,green circle  - mobile only*/
     @media (max-width: 575px) {
         .list-group-item-success:before{
@@ -87,106 +110,135 @@
 <p v-if="!connected" class="d-none d-sm-block">
     Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.
 </p>
+<div class="row split">
+    <div id="graph" class="col-slide col-hidden animate" :class="{'wide':store.getSelectedFeeds().length > 0}">
+        <h2 v-if="selectedFeed">Graph: {{selectedFeed.name}}</h2>
 
-<div id="feeds">
-    <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
-        <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
-    </div>
-    <div v-for="(node, node_id) in nodes"
-        v-bind:class="node.status"
-        class="card dropup mb-1"
-    >
-        <div class="card-header p-0" :id="'heading_' + node.id">
-            <a class="d-flex no-gutters text-body justify-content-between py-2 no-underline"
-               data-toggle="collapse"
-               v-bind:href="'#collapse_' + node.id"
-               v-bind:class="{'collapsed': node.collapsed !== false}"
-               v-bind:aria-controls="'collapse_' + node.id"
-            >
-                <div class="d-flex col justify-content-between">
-                    <h5 class="col d-flex mb-0 col-md-8 col-xl-6">{{node.tag}} :
-                        <small v-if="store.getNodeSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted">
-                            ({{ store.getNodeSelectedFeeds(node_id).length }})
-                        </small>
-                    </h5>
-                    <div class="col d-none d-sm-block ml-4 pl-4 ml-md-0 pl-md-1 ml-lg-5 pl-lg-3 ml-xl-5 pl-xl-3 text-muted">
-                        {{node.size | prettySize}}
-                    </div>
+        <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
+            <div id="graph"></div>
+            <div id="graph-buttons" style="position:absolute; top:18px; right:32px; opacity:0.5;">
+                <div class='btn-group'>
+                    <button class='btn graph-time' type='button' time='1'>D</button>
+                    <button class='btn graph-time' type='button' time='7'>W</button>
+                    <button class='btn graph-time' type='button' time='30'>M</button>
+                    <button class='btn graph-time' type='button' time='365'>Y</button>
                 </div>
-                <div class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right"
-                    v-html="list_format_updated(node.lastupdate)"
-                ></div>
-            </a>
-        </div>
 
-        <div class="collapse"
-            v-bind:id="'collapse_' + node.id"
-            v-bind:data-key="node_id"
-            v-bind:class="{'show': !node.collapsed}"
-            v-bind:aria-labelledby="'heading_' + node.id"
+                <div class='btn-group' id='graph-navbar' style='display: none;'>
+                    <button class='btn graph-nav' id='zoomin'>+</button>
+                    <button class='btn graph-nav' id='zoomout'>-</button>
+                    <button class='btn graph-nav' id='left'><</button>
+                    <button class='btn graph-nav' id='right'>></button>
+                </div>
+
+            </div>
+        </div>
+    </div><!-- /#graph -->
+    <div id="feeds" class="col animate" :class="{'narrow':store.getSelectedFeeds().length > 0}">
+        <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
+            <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
+        </div>
+        <div v-for="(node, node_id) in nodes"
+            v-bind:class="node.status"
+            class="card dropup mb-1"
         >
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item pl-0"
-                    data-toggle="popover"
-                    data-content="@todo: fill tooltip"
-                    v-for="(feed, feed_id) in node.feeds"
-                    v-bind:class="getFeedClass(feed)"
-                    v-bind:title="feed.id"
+            <div class="card-header p-0" :id="'heading_' + node.id">
+                <a class="d-flex no-gutters text-body justify-content-between py-2 no-underline row"
+                data-toggle="collapse"
+                v-bind:href="'#collapse_' + node.id"
+                v-bind:class="{'collapsed': node.collapsed !== false}"
+                v-bind:aria-controls="'collapse_' + node.id"
                 >
-                    <div class="d-flex justify-content-between no-gutters">
-                        <div class="col col-8 col-lg-9">
-                            <div class="row no-gutters">
-                            <div class="pl-3 pull-left">
-                                <div class="custom-control custom-checkbox text-center">
-                                <input class="custom-control-input select-feed"
-                                    type="checkbox"
-                                    aria-label="select this feed"
-                                    v-bind:id="'select-feed-' + feed.id"
-                                    v-bind:data-id="feed.id"
-                                    v-bind:checked="feed.selected"
-                                    v-on:change="feed.selected = $event.target.checked"
-                                >
-                                <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
-                                </div>
-                            </div>
-                            <div class="col text-truncate pl-1 col-md-5 col-xl-4" v-bind:title="feed.name">
-                                {{feed.name}}
-                            </div>
-                            <div class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
-                                <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
-                                    <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
-                                        <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
-                                    </svg>
-                                </div>
-                                <div class="col d-none d-md-block text-truncate col-5 col-md-6" v-bind:title="getEngineName(feed)">
-                                    {{getEngineName(feed)}}
-                                </div>
-                                <div class="col d-none d-sm-block col-6 col-sm-10 ml-lg-1 ml-xl-0">
-                                    {{feed.size | prettySize }}
-                                </div>
-                            </div>
-                            </div>
-                        </div>
-                        <div class="col col-sm-4 col-lg-3">
-                            <div class="row no-gutters">
-                                <div class="col text-right text-truncate pr-2">
-                                    {{list_format_value(feed.value)}} {{feed.unit}}
-                                </div>
-                            <div class="col col-6 col-md-5 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
-                            </div>
+                    <div class="d-flex col justify-content-between">
+                        <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': selectedFeed}">{{node.tag}} :
+                            <small v-if="store.getSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted d-narrow-none">
+                                ({{ store.getNodeSelectedFeeds(node_id).length }})
+                            </small>
+                        </h5>
+                        <div v-if="!selectedFeed" class="col d-none d-sm-block ml-4 pl-4 ml-md-0 pl-md-1 ml-lg-5 pl-lg-3 ml-xl-5 pl-xl-3 text-muted">
+                            {{node.size | prettySize}}
                         </div>
                     </div>
-                </li>
-            </ul>
+                    <div class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right"
+                    :class="{'col-4': selectedFeed}"
+                        v-html="list_format_updated(node.lastupdate)"
+                    ></div>
+                </a>
+            </div>
+
+            <div class="collapse"
+                v-bind:id="'collapse_' + node.id"
+                v-bind:data-key="node_id"
+                v-bind:class="{'show': !node.collapsed}"
+                v-bind:aria-labelledby="'heading_' + node.id"
+            >
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item pl-0"
+                        data-toggle="popover"
+                        data-content="@todo: fill tooltip"
+                        v-for="(feed, feed_id) in node.feeds"
+                        v-bind:class="getFeedClass(feed)"
+                        v-bind:title="feed.id"
+                    >
+                        <div class="d-flex justify-content-between" :class="{'no-gutters': !feedSelected}">
+                            <div class="col col-8 col-lg-9" :class="{'col-12': feedSelected,'col-lg-12': feedSelected}">
+                                <div class="row" :class="{'no-gutters': !feedSelected}">
+                                <div class="pl-3 pull-left" :class="{'pl-0': feedSelected, 'col-3': feedSelected}">
+                                    <div class="custom-control custom-checkbox text-center">
+                                    <input class="custom-control-input select-feed"
+                                        type="checkbox"
+                                        aria-label="select this feed"
+                                        v-bind:id="'select-feed-' + feed.id"
+                                        v-bind:data-id="feed.id"
+                                        v-bind:checked="feed.selected"
+                                        v-on:change="feed.selected = $event.target.checked"
+                                    >
+                                    <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
+                                    </div>
+                                </div>
+                                <div class="col text-truncate pl-1 col-md-5 col-xl-4" :class="{'col-9': feedSelected,'col-md-9': feedSelected,'col-xl-9': feedSelected}" v-bind:title="feed.name">
+                                    {{feed.name}}
+                                </div>
+                                <div v-if="!feedSelected" class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
+                                    <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
+                                        <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
+                                            <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
+                                        </svg>
+                                    </div>
+                                    <div class="col d-none d-md-block text-truncate col-5 col-md-6" v-bind:title="getEngineName(feed)">
+                                        {{getEngineName(feed)}}
+                                    </div>
+                                    <div class="col d-none d-sm-block col-6 col-sm-10 ml-lg-1 ml-xl-0">
+                                        {{feed.size | prettySize }}
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                            <div class="col col-sm-4 col-lg-3" v-if="!feedSelected">
+                                <div class="row no-gutters">
+                                    <div class="col text-right text-truncate pr-2">
+                                        {{list_format_value(feed.value)}} {{feed.unit}}
+                                    </div>
+                                <div class="col col-6 col-md-5 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
         </div>
-    </div>
-</div>
+    </div><!-- /#feeds -->
+
+</div><!-- /.row -->
 
 <script src="js/jquery-1.11.3.min.js"></script>
 <script src="js/bootstrap.bundle.min.js"></script>
 <script src="js/mqtt.min.js"></script>
 <script src="js/misc.js"></script>
 <script src="js/vue.js"></script>
+<!--[if IE]><script language="javascript" type="text/javascript" src="lib/flot/excanvas.min.js"></script><![endif]-->
+<script language="javascript" type="text/javascript" src="lib/flot/jquery.flot.merged.js"></script>
+<script language="javascript" type="text/javascript" src="js/vis.helper.js"></script>
 
 <script>
     // GLOBAL APP STATE for all vue instances
@@ -306,6 +358,14 @@
                 }
                 return size;
             }
+        },
+        computed: {
+            selectedFeed: function() {
+                return store.getSelectedFeeds()[0] || false;
+            },
+            feedSelected: function() {
+                return store.getSelectedFeeds().length > 0
+            }
         }
     });
 
@@ -361,14 +421,20 @@
             viewFeeds: function(event) {
                 if (store.debug) console.log('view() triggered with', event);
                 event.preventDefault();
-                var selected = store.getSelectedFeeds();
-                var feed = selected[0];
-                window.location.href = 'graph?id=' + feed.id + '&name=' + feed.name;
+                document.getElementById('#graph').classList.remove('d-none');
                 // @todo
             }
         }
     })
-
+    var app3 = new Vue({
+        el: '#graph',
+        data: store.state,
+        computed: {
+            selectedFeed: function() {
+                return store.getSelectedFeeds()[0] || false;
+            }
+        }
+    });
 </script>
 
 <script>
