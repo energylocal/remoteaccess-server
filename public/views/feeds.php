@@ -69,7 +69,7 @@
 <div id="feeds-navbar" class="d-flex justify-content-sm-between flex-wrap">
     <div id="page-title" class="d-flex align-items-start flex-nowrap">
         <h2 class="mb-1 mr-2 text-nowrap">Feed List</h2>
-        <button id="toggle" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
+        <button id="toggleRefresh" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
     </div>
     <nav id="feedlist-buttons" class="btn-toolbar d-flex justify-sm-content-end" role="toolbar" aria-label="feed buttons">
         <div id="list-buttons" class="btn-group align-items-start mb-1" role="group" aria-label="Basic example">
@@ -111,8 +111,8 @@
     Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.
 </p>
 <div class="row split">
-    <div id="graph" class="col-slide col-hidden animate" :class="{'wide':store.getSelectedFeeds().length > 0}">
-        <h2 v-if="selectedFeed">Graph: {{selectedFeed.name}}</h2>
+    <div id="graph" class="col-slide col-hidden animate" :class="{'wide':selectedGraphFeed}">
+        <h2 v-if="selectedGraphFeed">Graph: {{selectedGraphFeed.name}}</h2>
 
         <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
             <div id="graph"></div>
@@ -134,7 +134,10 @@
             </div>
         </div>
     </div><!-- /#graph -->
-    <div id="feeds" class="col animate" :class="{'narrow':store.getSelectedFeeds().length > 0}">
+
+
+
+    <div id="feeds" class="col animate" :class="{'narrow':selectedFeed}">
         <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
             <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
         </div>
@@ -150,17 +153,17 @@
                 v-bind:aria-controls="'collapse_' + node.id"
                 >
                     <div class="d-flex col justify-content-between">
-                        <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': selectedFeed}">{{node.tag}} :
+                        <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': selectedGraphFeed}">{{node.tag}} :
                             <small v-if="store.getSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted d-narrow-none">
                                 ({{ store.getNodeSelectedFeeds(node_id).length }})
                             </small>
                         </h5>
-                        <div v-if="!selectedFeed" class="col d-none d-sm-block ml-4 pl-4 ml-md-0 pl-md-1 ml-lg-5 pl-lg-3 ml-xl-5 pl-xl-3 text-muted">
+                        <div v-if="!selectedGraphFeed" class="col d-none d-sm-block ml-4 pl-4 ml-md-0 pl-md-1 ml-lg-5 pl-lg-3 ml-xl-5 pl-xl-3 text-muted">
                             {{node.size | prettySize}}
                         </div>
                     </div>
-                    <div class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right"
-                    :class="{'col-4': selectedFeed}"
+                    <div v-if="!selectedGraphFeed" class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right"
+                    :class="{'col-4': selectedGraphFeed}"
                         v-html="list_format_updated(node.lastupdate)"
                     ></div>
                 </a>
@@ -180,10 +183,10 @@
                         v-bind:class="getFeedClass(feed)"
                         v-bind:title="feed.id"
                     >
-                        <div class="d-flex justify-content-between" :class="{'no-gutters': !feedSelected}">
-                            <div class="col col-8 col-lg-9" :class="{'col-12': feedSelected,'col-lg-12': feedSelected}">
-                                <div class="row" :class="{'no-gutters': !feedSelected}">
-                                <div class="pl-3 pull-left" :class="{'pl-0': feedSelected, 'col-3': feedSelected}">
+                        <div class="d-flex justify-content-between" :class="{'no-gutters': !selectedGraphFeed}">
+                            <div class="col col-8 col-lg-9" :class="{'col-12': selectedGraphFeed,'col-lg-12': selectedGraphFeed}">
+                                <div class="row" :class="{'no-gutters': !selectedGraphFeed}">
+                                <div class="pl-3 pull-left" :class="{'pl-0': selectedGraphFeed, 'col-3': selectedGraphFeed}">
                                     <div class="custom-control custom-checkbox text-center">
                                     <input class="custom-control-input select-feed"
                                         type="checkbox"
@@ -196,10 +199,10 @@
                                     <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
                                     </div>
                                 </div>
-                                <div class="col text-truncate pl-1 col-md-5 col-xl-4" :class="{'col-9': feedSelected,'col-md-9': feedSelected,'col-xl-9': feedSelected}" v-bind:title="feed.name">
+                                <div class="col text-truncate pl-1 col-md-5 col-xl-4" :class="{'col-9': selectedGraphFeed,'col-md-9': selectedGraphFeed,'col-xl-9': selectedGraphFeed}" v-bind:title="feed.name">
                                     {{feed.name}}
                                 </div>
-                                <div v-if="!feedSelected" class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
+                                <div v-if="!selectedGraphFeed" class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
                                     <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
                                         <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
                                             <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
@@ -214,7 +217,7 @@
                                 </div>
                                 </div>
                             </div>
-                            <div class="col col-sm-4 col-lg-3" v-if="!feedSelected">
+                            <div class="col col-sm-4 col-lg-3" v-if="!selectedGraphFeed">
                                 <div class="row no-gutters">
                                     <div class="col text-right text-truncate pr-2">
                                         {{list_format_value(feed.value)}} {{feed.unit}}
@@ -233,7 +236,6 @@
 
 <script src="js/jquery-1.11.3.min.js"></script>
 <script src="js/bootstrap.bundle.min.js"></script>
-<script src="js/mqtt.min.js"></script>
 <script src="js/misc.js"></script>
 <script src="js/vue.js"></script>
 <!--[if IE]><script language="javascript" type="text/javascript" src="lib/flot/excanvas.min.js"></script><![endif]-->
@@ -246,6 +248,9 @@
         debug: true,
         state: {
             nodes: {},
+            graphSelectedFeeds: [],
+            editSelectedFeeds: [],
+            deleteSelectedFeeds: [],
             connected: false
         },
         // edit the shared store's state with internal functions...
@@ -260,7 +265,7 @@
             if (this.state.nodes[tag] && this.state.nodes[tag].feeds[id]) this.state.nodes[tag].feeds[id].selected = state;
         },
         setNodes: function(nodes){
-            if (this.debug) console.log('setNodes() triggered with', nodes);
+            // if (this.debug) console.log('setNodes() triggered with', nodes);
             this.state.nodes = nodes;
         },
         // aggrigate functions based on store properties
@@ -292,6 +297,13 @@
             }
             return selected;
         },
+        setSelectedGraphFeed: function() {
+            if(this.state.graphSelectedFeeds.length == 0) {
+                this.state.graphSelectedFeeds = this.getSelectedFeeds();
+            } else {
+                this.state.graphSelectedFeeds = [];
+            }
+        }
     }
     // return new object with each feed tag as individual object with "feeds" property
     function groupFeeds(feeds) {
@@ -360,6 +372,9 @@
             }
         },
         computed: {
+            selectedGraphFeed: function() {
+                return store.state.graphSelectedFeeds[0] || false;
+            },
             selectedFeed: function() {
                 return store.getSelectedFeeds()[0] || false;
             },
@@ -419,10 +434,9 @@
                 // @todo
             },
             viewFeeds: function(event) {
-                if (store.debug) console.log('view() triggered with', event);
+                if (store.debug) console.log('view() graph triggered with', event.type);
                 event.preventDefault();
-                document.getElementById('#graph').classList.remove('d-none');
-                // @todo
+                store.setSelectedGraphFeed();
             }
         }
     })
@@ -432,6 +446,24 @@
         computed: {
             selectedFeed: function() {
                 return store.getSelectedFeeds()[0] || false;
+            },
+            selectedGraphFeed: function() {
+                return store.state.graphSelectedFeeds[0] || false;
+            }
+        },
+        watch: {
+            graphSelectedFeeds: function(newVal, oldVal) {
+                if(newVal.length > 0) {
+                    
+                    var feedid = 0;
+                    var start = 0;
+                    var end = 0;
+                    var interval = 0;
+                    var skipmissing = 0;
+                    var limitinterval = 0;
+
+                    Graph.getData(feedid,start,end,interval,skipmissing,limitinterval);
+                }
             }
         }
     });
@@ -461,93 +493,162 @@ var DEBUG = store.debug || false;
 var session = <?php echo json_encode($session); ?>;
 // application settings
 var settings = <?php echo json_encode($settings); ?>;
+</script>
+
+
+
+<script src="js/mqtt.min.js"></script>
+<script>
 // mqtt client instance
-var client;
-// mqtt broker connection settings
-var options = {
-    username: session.username,
-    password: session.password,
-    clientId: 'mqttjs_' + session.username + '_' + Math.random().toString(16).substr(2, 8),
-    port: settings.port,
-    host: settings.host
-}
-// notify broker of disconnection
-options.will = {
-    topic: 'user/' + options.username + '/response/' + options.clientId,
-    payload: 'DISCONNECTED CLIENT ' + options.clientId + '--------',
-    qos: 0,
-    retain: false
-};
-// send publish() to mqtt broker at set interval
-var pubInterval = null
-
-// auto connect on load:
-connect();
-
-window.addEventListener('beforeunload', function (event) {
-    disconnect();
-}, false);
-
-// connect to mqtt broker
-// add callback function to run when subscribed topic messages arrive
-function connect() {
-    if (DEBUG) console.log('mqtt: connect() called');
-    client = mqtt.connect(options.host, options);
-
-    var btn = document.querySelector('#toggle')
-    btn.innerText = 'pause updates'
-    btn.dataset.status = 'connected'
-
-    client.on('connect', function () {
-        if (DEBUG) console.log('mqtt: on connect event called. connected.');
-        client.subscribe("user/"+options.username+"/response/"+options.clientId, function (err) {
-            if (!err) {
-                publish();
-                pubInterval = setInterval(publish,5000);
-            }
-        })
-    })
-    /**
-    * @arg String topic
-    * @arg Buffer message
-    */
-    client.on('message', function(topic, message) {
-        if (DEBUG) console.log('mqtt: received message from ', topic);
-        var feeds = JSON.parse(message.toString());
-        var nodes = groupFeeds(feeds);
-        store.setNodes(nodes);
-    })
-}
-
-// publish request to mqtt broker
-function publish() {
-    if (DEBUG) console.log('mqtt: requesting feed list...');
-
-    var publish_options = {
-        clientId: options.clientId,
-        path: "/emoncms/feed/list.json"
+var Mqtt = (function(session, settings){
+    mqttClient = null;
+    // mqtt broker connection settings
+    var brokerOptions = {
+        username: session.username,
+        password: session.password,
+        clientId: 'mqttjs_' + session.username + '_' + Math.random().toString(16).substr(2, 8),
+        port: settings.port,
+        host: settings.host
     }
-    client.publish("user/"+options.username+"/request", JSON.stringify(publish_options))
-}
+    // notify broker of disconnection
+    brokerOptions.will = {
+        topic: 'user/' + brokerOptions.username + '/response/' + brokerOptions.clientId,
+        payload: 'DISCONNECTED CLIENT ' + brokerOptions.clientId + '--------',
+        qos: 0,
+        retain: false
+    };
+    // send publish() to mqtt broker at set interval
+    var publishInterval = null
 
-// disconnect from mqtt broker
-function disconnect() {
-    if (DEBUG) console.log('mqtt: disconnect() called.');
-    client.end()
-    clearInterval(pubInterval)
-    var btn = document.getElementById('toggle')
-    btn.innerText = 'start updates'
-    btn.dataset.status = 'disconnected'
+    window.addEventListener('beforeunload', function (event) {
+        disconnectFromBroker();
+    }, false);
+
+    // connect to mqtt broker
+    // add callback function to run when subscribed topic messages arrive
+    function connectToBroker(options) {
+        if (DEBUG) console.log('mqtt: connect() called with ', options);
+        mqttClient = mqtt.connect(brokerOptions.host, brokerOptions);
+
+        mqttClient.on('connect', function () {
+            if (DEBUG) console.log('mqtt: on connect event called. connected.');
+            mqttClient.subscribe("user/" + brokerOptions.username+"/response/" + brokerOptions.clientId, function (err) {
+                if (!err && typeof options != 'undefined') {
+                    publishToBrokerAtInterval(options);
+                }
+            })
+        })
+    }
+
+    // publish request to mqtt broker
+    function publishToBroker(options) {
+        if (DEBUG) console.log('mqtt: requesting feed list with ', options);
+
+        var publish_options = {
+            clientId: brokerOptions.clientId,
+            path: options.apiEndPoint
+        }
+        /**
+        * @arg String topic
+        * @arg Buffer message
+        */
+        mqttClient.on('message', options.onMessage);
+
+        mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(publish_options))
+    }
+
+    // disconnect from mqtt broker
+    function disconnectFromBroker() {
+        if (DEBUG) console.log('mqtt: disconnect() called.');
+        mqttClient.end()
+        // stop the looping of publishing to topic
+        clearInterval(publishInterval);
+    }
+
+
+    // start a setInterval at 5s
+    function publishToBrokerAtInterval(options) {
+        if (DEBUG) console.log('mqtt: publish interval started with', options);
+
+        var btn = document.querySelector('#toggleRefresh');
+        if (btn) {
+            btn.innerText = 'pause updates';
+            btn.dataset.status = 'connected'; 
+        }
+        
+        publishToBroker(options);
+        setPublishInterval(setInterval(function(){
+            publishToBroker(options)
+        }, 5000));
+    }
+
+    function setPublishInterval(interval) {
+        publishInterval = interval;
+    }
+    function getPublishInterval(interval) {
+        return publishInterval;
+    }
+    function interruptPublishInterval() {
+        var interval = getPublishInterval();
+        clearInterval(interval);
+        setPublishInterval(null);
+        var btn = document.getElementById('toggleRefresh');
+        btn.innerText = 'start updates';
+        btn.dataset.status = 'disconnected';
+    }
+    // expose these functions and variables to the global variable mqtt
+    return {
+        disconnect: disconnectFromBroker,
+        publish: publishToBroker,
+        connect: connectToBroker,
+        client:  mqttClient,
+        getInterval: getPublishInterval,
+        setInterval: setPublishInterval,
+        loop: publishToBrokerAtInterval,
+        pause: interruptPublishInterval,
+        options: brokerOptions
+    }
+})(session, settings);
+// end of mqtt "module" 
+</script>
+
+
+<script>
+// list of api endpoints
+var endpoints = {
+    feedlist: {
+        url: '/emoncms/feed/list.json',
+        callback:  function(topic, message) {
+            if (DEBUG) console.log('mqtt: received message from ', topic);
+            var feeds = JSON.parse(message.toString());
+            var nodes = groupFeeds(feeds);
+            store.setNodes(nodes);
+        }
+    },
+    graph: {
+        url: '/emoncms/feed/graph.json',
+        callback: function(topic, message){
+            var data = JSON.parse(message.toString())
+            console.log('graph callback', data);
+        }
+    },
+    saveFeed: '/emoncms/feed/set.json',
+    deleteFeed: '/emoncms/feed/delete.json',
 }
+// auto connect on load:
+Mqtt.connect({apiEndPoint: endpoints.feedlist.url, onMessage: endpoints.feedlist.callback});
+
+
 
 // pause or resume the data download by disconnecting and connecting to broker
 function on_off(event) {
     event.preventDefault()
     btn = event.target
     if (btn.dataset.status == 'connected') {
-        disconnect()
+        if (DEBUG) console.log('mqtt: publish interval interrupted', Mqtt.getInterval());
+        Mqtt.pause();
     } else {
-        connect()
+        Mqtt.loop({apiEndPoint: endpoints.feedlist});
     }
 }
 
@@ -568,7 +669,7 @@ function getEngineName(feed) {
 
 function camelCase(str) {
     // @todo: return string suitable to be used as an object property name
-    return str.toLowerCase().replace(' ','_')
+    if(typeof str != 'undefined') return str.toLowerCase().replace(' ','_')
 }
 
 // return size of feed in best suited unit of file size
@@ -606,4 +707,21 @@ function getFeedClass(feed) {
     return css_classes.join(' ');
 }
 
+var Graph = (function(session, settings){
+    var brokerOptions = Mqtt.options;
+    
+    function get_feed_data(feedid,start,end,interval,skipmissing,limitinterval) {
+        console.log("mqtt: requesting feed data");
+        var publish_options = {
+            clientId: brokerOptions.clientId,
+            path: "/emoncms/feed/data.json?id="+feedid+"&start="+start+"&end="+end+"&interval="+interval+"&skipmissing="+skipmissing+"&limitinterval="+limitinterval
+        }
+        Mqtt.publish({apiEndPoint: endpoints.graph.url, onMessage: endpoints.graph.callback});
+    }
+
+    // public functions
+    return {
+        getData: get_feed_data
+    }
+})(session, settings);
 </script>
