@@ -455,14 +455,19 @@
             graphSelectedFeeds: function(newVal, oldVal) {
                 if(newVal.length > 0) {
                     
-                    var feedid = 0;
-                    var start = 0;
-                    var end = 0;
-                    var interval = 0;
-                    var skipmissing = 0;
-                    var limitinterval = 0;
+                    var feed = newVal[0];
+                    var npoints = 800;
+                    var timeWindow = 3600000 * 24; // one hour x 24 = one day
+                    var feedid = feed.id;
+                    var start = new Date() - timeWindow;
+                    var end = new Date().getTime();
+                    var interval = Math.round(((end - start)/npoints)/1000);
+                    var skipmissing = 1;
+                    var limitinterval = 1;
 
-                    Graph.getData(feedid,start,end,interval,skipmissing,limitinterval);
+                    GRAPH.draw(); // set out the graph
+                    // request the data. received data will be plotted
+                    GRAPH.getData(feedid,start,end,interval,skipmissing,limitinterval);
                 }
             }
         }
@@ -490,9 +495,9 @@
 // Plain JS Mqtt functions
 var DEBUG = store.debug || false;
 // session variables
-var session = <?php echo json_encode($session); ?>;
+var SESSION = <?php echo json_encode($session); ?>;
 // application settings
-var settings = <?php echo json_encode($settings); ?>;
+var SETTINGS = <?php echo json_encode($settings); ?>;
 </script>
 
 
@@ -500,7 +505,7 @@ var settings = <?php echo json_encode($settings); ?>;
 <script src="js/mqtt.min.js"></script>
 <script>
 // mqtt client instance
-var Mqtt = (function(session, settings){
+var MQTT = (function(session, settings){
     mqttClient = null;
     // mqtt broker connection settings
     var brokerOptions = {
@@ -538,23 +543,34 @@ var Mqtt = (function(session, settings){
                 }
             })
         })
-    }
 
-    // publish request to mqtt broker
-    function publishToBroker(options) {
-        if (DEBUG) console.log('mqtt: requesting feed list with ', options);
-
-        var publish_options = {
-            clientId: brokerOptions.clientId,
-            path: options.apiEndPoint
-        }
         /**
         * @arg String topic
         * @arg Buffer message
         */
-        mqttClient.on('message', options.onMessage);
+        mqttClient.on('message', function(topic, message) {
+            var response = JSON.parse(message.toString());
+            if (DEBUG) console.log('mqtt: received message from ', topic, '. original request: ', response.request.action);
+            var result = response.result;
+            switch(response.request.action) {
+                case 'feed/list':
+                    var nodes = groupFeeds(result);
+                    store.setNodes(nodes);
+                break;
+                case 'feed/data':
+                    console.log(response.request)
+                    GRAPH.plot(result);
+                break;
+                default:
+                    if (DEBUG) console.log('mqtt: cannot respond to unrecognized action ', response.request.action);
+            }
+        });
+    }
 
-        mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(publish_options))
+    // publish request to mqtt broker
+    function publishToBroker(options) {
+        if (DEBUG) console.log('mqtt: publishing to request: ', options.action);
+        mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(options))
     }
 
     // disconnect from mqtt broker
@@ -608,35 +624,25 @@ var Mqtt = (function(session, settings){
         pause: interruptPublishInterval,
         options: brokerOptions
     }
-})(session, settings);
+})(SESSION, SETTINGS);
 // end of mqtt "module" 
 </script>
 
 
 <script>
 // list of api endpoints
-var endpoints = {
-    feedlist: {
-        url: '/emoncms/feed/list.json',
-        callback:  function(topic, message) {
-            if (DEBUG) console.log('mqtt: received message from ', topic);
-            var feeds = JSON.parse(message.toString());
-            var nodes = groupFeeds(feeds);
-            store.setNodes(nodes);
-        }
-    },
-    graph: {
-        url: '/emoncms/feed/graph.json',
-        callback: function(topic, message){
-            var data = JSON.parse(message.toString())
-            console.log('graph callback', data);
-        }
-    },
+var ENDPOINTS = {
+    feedlist: 'feed/list',
+    graph: 'feed/data',
     saveFeed: '/emoncms/feed/set.json',
     deleteFeed: '/emoncms/feed/delete.json',
 }
 // auto connect on load:
-Mqtt.connect({apiEndPoint: endpoints.feedlist.url, onMessage: endpoints.feedlist.callback});
+var feedlistPublishOptions = {
+    clientId: MQTT.options.clientId,
+    action: ENDPOINTS.feedlist
+}
+MQTT.connect(feedlistPublishOptions);
 
 
 
@@ -645,10 +651,10 @@ function on_off(event) {
     event.preventDefault()
     btn = event.target
     if (btn.dataset.status == 'connected') {
-        if (DEBUG) console.log('mqtt: publish interval interrupted', Mqtt.getInterval());
-        Mqtt.pause();
+        if (DEBUG) console.log('mqtt: publish interval interrupted. #', MQTT.getInterval());
+        MQTT.pause();
     } else {
-        Mqtt.loop({apiEndPoint: endpoints.feedlist});
+        MQTT.loop(feedlistPublishOptions);
     }
 }
 
@@ -707,21 +713,41 @@ function getFeedClass(feed) {
     return css_classes.join(' ');
 }
 
-var Graph = (function(session, settings){
-    var brokerOptions = Mqtt.options;
+// Graph related code
+
+var GRAPH = (function(session, settings, endpoints, mqtt){
+    var brokerOptions = mqtt.options;
     
     function get_feed_data(feedid,start,end,interval,skipmissing,limitinterval) {
         console.log("mqtt: requesting feed data");
         var publish_options = {
             clientId: brokerOptions.clientId,
-            path: "/emoncms/feed/data.json?id="+feedid+"&start="+start+"&end="+end+"&interval="+interval+"&skipmissing="+skipmissing+"&limitinterval="+limitinterval
+            action: endpoints.graph,
+            data: {
+                id: feedid,
+                start: start,
+                end: end,
+                interval: interval,
+                skipmissing: skipmissing,
+                limitinterval: limitinterval
+            }
         }
-        Mqtt.publish({apiEndPoint: endpoints.graph.url, onMessage: endpoints.graph.callback});
+        mqtt.publish(publish_options);
+    }
+    function plot(result) {
+        console.log('plot graph data', result);        
+    }
+    function draw(){
+        console.log('graph draw');
     }
 
     // public functions
     return {
-        getData: get_feed_data
+        getData: get_feed_data,
+        plot: plot,
+        draw: draw
     }
-})(session, settings);
+})(SESSION, SETTINGS, ENDPOINTS, MQTT);
+
+
 </script>

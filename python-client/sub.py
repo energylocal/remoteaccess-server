@@ -7,6 +7,7 @@ import ssl
 import requests as requests
 import paho.mqtt.client as paho
 import os
+import urllib
 from os import path, getenv
 from dotenv import load_dotenv
 
@@ -58,8 +59,9 @@ emoncms = {
     "host" : "localhost",
     "port" : "80",
     "path" : "/emoncms/feed/list.json",
-    "parameters" : "?",
-    "apikey" : apikey
+    "parameters" : {
+        "apikey" : apikey
+    }
 }
 logging.debug("Settings: %s, %s, %s, %s. TLS:%s", mqtt["clientId"], mqtt["host"], mqtt["pubTopic"], mqtt["subTopic"], mqtt["tls"])
 
@@ -217,27 +219,44 @@ def call_api(msg):
     """
     global mqtt
     logging.debug("Sending API call")
-    json_data = json.loads(msg)
+    request = json.loads(msg)
     # merge the default settings with ones passed in the mqtt topic
-    data = merge_two_dicts(emoncms, json_data)
+    data = merge_two_dicts(emoncms, request)
+    path = "/emoncms/" + data["action"]
+    if 'data' in request:
+        params = merge_two_dicts(data["parameters"], request["data"])
+    else:
+        params = data["parameters"]
+    url_params = '?' + urllib.urlencode(params)
+    url = "%s%s:%s%s.json%s" % (data["protocol"], data["host"], data["port"], path, url_params)
+    logging.debug("Sending API request %s" % url)
+    response = requests.get(url)
+    send_response(request, response)
 
-    uri = "%s%s:%s%s%s&apikey=%s" % (data["protocol"], data["host"], data["port"], data["path"], data["parameters"], data["apikey"])
-    logging.debug("Sending API request %s" % uri)
-    send_response(requests.get(uri), data["clientId"])
 
-
-def send_response(response, remote_client_id):
+def send_response(request, response):
     """ Forward the API call response (JSON) to another 
-    MQTT topic the opposite client is subscibed to
+    MQTT topic the requesting client is subscibed to.
+
+    @todo: Also wraps the api response in a data property and includes the original
+    request message in the response.
 
     Attributes
         response -- json payload for the mqtt message
 
     """
     global mqtt
+    remote_client_id = request["clientId"]
     logging.debug("Sending API response to: \"%s%s\"" % (mqtt["pubTopic"], remote_client_id))
+
+    json_response = {
+        "request": request,
+        "result": response.json()
+    }
+    # publish to topic
     pub_response = mqtt["client"].publish(
-        mqtt["pubTopic"]+remote_client_id, json.dumps(response.json()))  # publish
+        mqtt["pubTopic"] + remote_client_id, json.dumps(json_response)
+    )
 
     logging.debug("PUBLISHED: %s", paho.error_string(pub_response.rc))
     # pub_response.wait_for_publish()
