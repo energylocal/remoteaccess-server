@@ -50,6 +50,12 @@
         max-width: 100%!important;
         flex: 0 0 100%!important;
     }
+    #graph{
+        margin-top: -.5rem;
+    }
+    #feeds.narrow #feed-list > li {
+        cursor: pointer;
+    }
     /* show feed update status as red,yellow,green circle  - mobile only*/
     @media (max-width: 575px) {
         .list-group-item-success:before{
@@ -90,7 +96,7 @@
             </button>
         </div>
 
-        <div id="feed-buttons" :class="{'d-none': store.getSelectedFeeds().length == 0}" class="btn-group align-items-start mb-1 ml-1" role="group" aria-label="Feed Specific actions">
+        <div id="feed-buttons" v-if="store.getSelectedFeeds().length > 0 || store.state.graphSelectedFeeds.length > 0" class="btn-group align-items-start mb-1 ml-1" role="group" aria-label="Feed Specific actions">
             <button type="button" class="btn btn-info" title="Edit selected feeds" @click="editFeeds">
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#edit"></use></svg>
             </button>
@@ -100,7 +106,9 @@
             <button type="button" class="btn btn-info" title="Download selected feeds" @click="downloadFeeds">
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#download"></use></svg>
             </button>
-            <button type="button" class="btn btn-info" title="View Selected feeds as a graph" @click="viewFeeds">
+            <button type="button" class="btn btn-info" title="View Selected feeds as a graph" @click="viewFeeds"
+                :aria-pressed="mode == 'graph'"
+                :class="{'active': mode == 'graph'}">
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#view"></use></svg>
             </button>
         </div>
@@ -111,7 +119,7 @@
     Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.
 </p>
 <div class="row split">
-    <div id="graph" class="col-slide col-hidden animate" :class="{'wide':selectedGraphFeed}">
+    <div id="graph" class="col-slide col-hidden animate" :class="{'wide': mode == 'graph'}">
         <h2 v-if="selectedGraphFeed">Graph: {{selectedGraphFeed.name}}</h2>
 
         <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
@@ -137,7 +145,7 @@
 
 
 
-    <div id="feeds" class="col animate" :class="{'narrow':selectedFeed}">
+    <div id="feeds" class="col animate" :class="{'narrow': mode == 'graph'}">
         <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
             <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
         </div>
@@ -167,7 +175,7 @@
                         v-html="list_format_updated(node.lastupdate)"
                     ></div>
                 </a>
-            </div>
+            </div><!-- /.card-header -->
 
             <div class="collapse"
                 v-bind:id="'collapse_' + node.id"
@@ -175,49 +183,51 @@
                 v-bind:class="{'show': !node.collapsed}"
                 v-bind:aria-labelledby="'heading_' + node.id"
             >
-                <ul class="list-group list-group-flush">
+                <ul id="feed-list" class="list-group list-group-flush">
                     <li class="list-group-item pl-0"
                         data-toggle="popover"
                         data-content="@todo: fill tooltip"
                         v-for="(feed, feed_id) in node.feeds"
                         v-bind:class="getFeedClass(feed)"
                         v-bind:title="feed.id"
+                        v-on:click.stop="itemClicked(feed)"
                     >
-                        <div class="d-flex justify-content-between" :class="{'no-gutters': !selectedGraphFeed}">
-                            <div class="col col-8 col-lg-9" :class="{'col-12': selectedGraphFeed,'col-lg-12': selectedGraphFeed}">
-                                <div class="row" :class="{'no-gutters': !selectedGraphFeed}">
-                                <div class="pl-3 pull-left" :class="{'pl-0': selectedGraphFeed, 'col-3': selectedGraphFeed}">
-                                    <div class="custom-control custom-checkbox text-center">
-                                    <input class="custom-control-input select-feed"
-                                        type="checkbox"
-                                        aria-label="select this feed"
-                                        v-bind:id="'select-feed-' + feed.id"
-                                        v-bind:data-id="feed.id"
-                                        v-bind:checked="feed.selected"
-                                        v-on:change="feed.selected = $event.target.checked"
-                                    >
-                                    <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
+                        <div class="d-flex justify-content-between" :class="{'no-gutters': mode === 'list'}">
+                            <div class="col col-8 col-lg-9" :class="{'col-12': mode === 'graph','col-lg-12': mode === 'graph'}">
+                                <div class="row" :class="{'no-gutters': mode === 'list'}">
+                                    <div v-if="mode === 'list'" class="pl-3 pull-left" :class="{'pl-0': mode === 'graph', 'col-3': mode === 'graph'}">
+                                        <div class="custom-control custom-checkbox text-center">
+                                            <input class="custom-control-input select-feed"
+                                                type="checkbox"
+                                                aria-label="select this feed"
+                                                v-bind:id="'select-feed-' + feed.id"
+                                                v-bind:data-id="feed.id"
+                                                v-bind:checked="feed.selected"
+                                                v-on:change="feed.selected = $event.target.checked"
+                                                v-on:click.stop="return true"
+                                            >
+                                            <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="col text-truncate pl-1 col-md-5 col-xl-4" :class="{'col-9': selectedGraphFeed,'col-md-9': selectedGraphFeed,'col-xl-9': selectedGraphFeed}" v-bind:title="feed.name">
-                                    {{feed.name}}
-                                </div>
-                                <div v-if="!selectedGraphFeed" class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
-                                    <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
-                                        <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
-                                            <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
-                                        </svg>
+                                    <div class="col text-truncate pl-1 col-md-5 col-xl-4" :class="{'pl-3': mode === 'graph', 'col-12': mode === 'graph','col-md-12': mode === 'graph','col-xl-12': mode === 'graph'}" v-bind:title="feed.name">
+                                        {{feed.name}}
                                     </div>
-                                    <div class="col d-none d-md-block text-truncate col-5 col-md-6" v-bind:title="getEngineName(feed)">
-                                        {{getEngineName(feed)}}
+                                    <div v-if="mode === 'list'" class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
+                                        <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
+                                            <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
+                                                <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
+                                            </svg>
+                                        </div>
+                                        <div class="col d-none d-md-block text-truncate col-5 col-md-6" v-bind:title="getEngineName(feed)">
+                                            {{getEngineName(feed)}}
+                                        </div>
+                                        <div class="col d-none d-sm-block col-6 col-sm-10 ml-lg-1 ml-xl-0">
+                                            {{feed.size | prettySize }}
+                                        </div>
                                     </div>
-                                    <div class="col d-none d-sm-block col-6 col-sm-10 ml-lg-1 ml-xl-0">
-                                        {{feed.size | prettySize }}
-                                    </div>
-                                </div>
                                 </div>
                             </div>
-                            <div class="col col-sm-4 col-lg-3" v-if="!selectedGraphFeed">
+                            <div class="col col-sm-4 col-lg-3" v-if="mode === 'list'">
                                 <div class="row no-gutters">
                                     <div class="col text-right text-truncate pr-2">
                                         {{list_format_value(feed.value)}} {{feed.unit}}
@@ -228,8 +238,8 @@
                         </div>
                     </li>
                 </ul>
-            </div>
-        </div>
+            </div><!-- /.collapse -->
+        </div><!-- /.card -->
     </div><!-- /#feeds -->
 
 </div><!-- /.row -->
@@ -251,7 +261,8 @@
             graphSelectedFeeds: [],
             editSelectedFeeds: [],
             deleteSelectedFeeds: [],
-            connected: false
+            connected: false,
+            mode: 'list' // list | graph
         },
         // edit the shared store's state with internal functions...
         toggleCollapsed: function(tag, state) {
@@ -300,8 +311,10 @@
         setSelectedGraphFeed: function() {
             if(this.state.graphSelectedFeeds.length == 0) {
                 this.state.graphSelectedFeeds = this.getSelectedFeeds();
+                this.state.mode = 'graph';
             } else {
                 this.state.graphSelectedFeeds = [];
+                this.state.mode = 'list';
             }
         }
     }
@@ -353,20 +366,24 @@
             },
             list_format_value: function(value) {
                 return list_format_value(value);
+            },
+            itemClicked: function(feed) {
+                if(this.mode === 'graph') {
+                    feed.selected = feed.selected === true ? false : true;
+                }
             }
         },
         filters: {
             prettySize: function (bytes) {
-                bytes = bytes || 0;
                 var decimals = 0
                 var size = new Number(bytes).toFixed(decimals) + 'B';
                 var length = bytes.toString().length
                 if(length > 9) {
-                    size = new Number(bytes/1000000000).toFixed(decimals) + ' GB';
+                    size = new Number(bytes/(1024*1024*1024)).toFixed(decimals) + ' GB';
                 } else if (length > 6) {
-                    size = new Number(bytes/1000000).toFixed(decimals) + ' MB';
+                    size = new Number(bytes/(1024*1024)).toFixed(decimals) + ' MB';
                 } else if (length > 3) {
-                    size = new Number(bytes/1000).toFixed(decimals) + ' KB';
+                    size = new Number(bytes/(1024)).toFixed(decimals) + ' KB';
                 }
                 return size;
             }
@@ -436,6 +453,7 @@
             viewFeeds: function(event) {
                 if (store.debug) console.log('view() graph triggered with', event.type);
                 event.preventDefault();
+                var btn = event.target;
                 store.setSelectedGraphFeed();
             }
         }
@@ -454,7 +472,7 @@
         watch: {
             graphSelectedFeeds: function(newVal, oldVal) {
                 if(newVal.length > 0) {
-                    
+
                     var feed = newVal[0];
                     var npoints = 800;
                     var timeWindow = 3600000 * 24; // one hour x 24 = one day
@@ -558,8 +576,7 @@ var MQTT = (function(session, settings){
                     store.setNodes(nodes);
                 break;
                 case 'feed/data':
-                    console.log(response.request)
-                    GRAPH.plot(result);
+                    GRAPH.plot(response);
                 break;
                 default:
                     if (DEBUG) console.log('mqtt: cannot respond to unrecognized action ', response.request.action);
@@ -591,7 +608,7 @@ var MQTT = (function(session, settings){
             btn.innerText = 'pause updates';
             btn.dataset.status = 'connected'; 
         }
-        
+
         publishToBroker(options);
         setPublishInterval(setInterval(function(){
             publishToBroker(options)
@@ -625,7 +642,7 @@ var MQTT = (function(session, settings){
         options: brokerOptions
     }
 })(SESSION, SETTINGS);
-// end of mqtt "module" 
+// end of mqtt "module"
 </script>
 
 
@@ -678,21 +695,6 @@ function camelCase(str) {
     if(typeof str != 'undefined') return str.toLowerCase().replace(' ','_')
 }
 
-// return size of feed in best suited unit of file size
-function prettySize(bytes) {
-    var decimals = 0
-    var size = new Number(bytes).toFixed(decimals) + 'B';
-    var length = bytes.toString().length
-    if(length > 9) {
-        size = new Number(bytes/(1024*1024*1024)).toFixed(decimals) + ' GB';
-    } else if (length > 6) {
-        size = new Number(bytes/(1024*1024)).toFixed(decimals) + ' MB';
-    } else if (length > 3) {
-        size = new Number(bytes/(1024)).toFixed(decimals) + ' KB';
-    }
-    return size;
-}
-
 // return list of css classes for list-group-item based on feed values
 function getFeedClass(feed) {
     var lastUpdated = new Date(feed.time * 1000);
@@ -717,8 +719,8 @@ function getFeedClass(feed) {
 
 var GRAPH = (function(session, settings, endpoints, mqtt){
     var brokerOptions = mqtt.options;
-    
-    function get_feed_data(feedid,start,end,interval,skipmissing,limitinterval) {
+
+    function get_feed_data(feedid, start, end, interval, skipmissing, limitinterval) {
         console.log("mqtt: requesting feed data");
         var publish_options = {
             clientId: brokerOptions.clientId,
@@ -734,8 +736,25 @@ var GRAPH = (function(session, settings, endpoints, mqtt){
         }
         mqtt.publish(publish_options);
     }
-    function plot(result) {
-        console.log('plot graph data', result);        
+    function plot(response) {
+        var placeholder = document.getElementById('graph');
+        var options = {
+            canvas: true,
+            lines: { fill: true },
+            xaxis: {
+                mode: "time",
+                timezone: "browser",
+                min: response.request.data.start,
+                max: response.request.data.end,
+                minTickSize: [response.request.data.interval, "second"]
+            },
+            //yaxis: { min: 0 },
+            grid: { hoverable: true, clickable: true },
+            selection: { mode: "x" },
+            touch: { pan: "x", scale: "x" }
+        }
+
+        $.plot(placeholder, [{data:response.result}], options);
     }
     function draw(){
         console.log('graph draw');

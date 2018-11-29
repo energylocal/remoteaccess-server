@@ -185,7 +185,7 @@ $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw(
 
     client.on('message', function (topic, message) {
         // message is Buffer
-        console.log("response received");
+        console.log("response received", message.toString());
         data = JSON.parse(message.toString());
         plot();
     })
@@ -194,7 +194,15 @@ $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw(
         console.log("mqtt: requesting feed data");
         var publish_options = {
             clientId: options.clientId,
-            path: "/emoncms/feed/data.json?id="+feedid+"&start="+start+"&end="+end+"&interval="+interval+"&skipmissing="+skipmissing+"&limitinterval="+limitinterval
+            action: "feed/data",
+            data: {
+                id:feedid,
+                start: start,
+                end: end,
+                interval: interval,
+                skipmissing: skipmissing,
+                limitinterval: limitinterval
+            }
         }
         client.publish("user/"+options.username+"/request", JSON.stringify(publish_options))
     }
