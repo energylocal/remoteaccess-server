@@ -58,7 +58,6 @@ var options = {
     host: settings.host
 }
 
-console.log("mqtt connect");
 var client = mqtt.connect(options.host, options)
 
 var feedid = <?php echo $feedid; ?>;
