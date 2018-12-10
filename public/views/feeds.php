@@ -33,17 +33,12 @@
         flex-grow: 0;
         width: 0;
         overflow: hidden;
+        padding: 0;
     }
+    .col-hidden h2{ padding-left: .95rem}
     .wide {
-        flex-grow: 0;
-        width: 75%;
-    }
-    .narrow {
         flex-grow: 1;
-        width: 25%;
-    }
-    .narrow .d-narrow-none {
-        display: none;
+        width: 75%;
     }
     .w-100{
         width: 100%!important;
@@ -97,7 +92,7 @@
 
 </style>
 
-<div id="feeds-navbar" class="d-flex justify-content-sm-between flex-wrap">
+<div id="feeds-navbar" class="d-flex justify-content-md-between flex-wrap">
     <div id="page-title" class="d-flex align-items-start flex-nowrap">
         <h2 class="mb-1 mr-2 text-nowrap">Feed List</h2>
         <button id="toggleRefresh" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
@@ -108,7 +103,9 @@
         <mark>{{ selectedFeeds.length }}/{{ feeds.length }} - {{ this.view }}</mark>
     </div>
     
-    <nav id="feedlist-buttons" class="btn-toolbar d-flex justify-sm-content-end" role="toolbar" aria-label="feed buttons">
+    <nav id="feedlist-buttons" role="toolbar" aria-label="feed buttons"
+        class="btn-toolbar d-flex justify-sm-content-end bg-sm-danger bg-md-success flex-grow-1 flex-md-grow-0">
+
         <div id="list-buttons" class="btn-group align-items-start mb-1" role="group" aria-label="Basic example">
             <button id="collapse-all"
                 type="button"
@@ -127,7 +124,7 @@
             </button>
         </div>
 
-        <div id="feed-buttons" class="btn-group align-items-start mb-1 ml-1" role="group" aria-label="Feed Specific actions">
+        <div id="feed-buttons" class="btn-group align-items-start ml-md-1 ml-auto mb-1" role="group" aria-label="Feed Specific actions">
             <button type="button" class="btn btn-info" title="View Selected feeds as a graph" 
                 v-on:click.prevent="graphFeeds"
                 :aria-pressed="view === 'graph'"
@@ -169,11 +166,11 @@
 </p>
 
 <div class="row split">
-    <div id="graph-section" class="col-slide col-hidden animate" 
-        :class="{'wide': shared.view == 'graph'}"
+    <div id="graph-section" class="col col-slide animate" 
+        :class="{'wide': shared.view == 'graph', 'col-hidden': shared.view === 'list'}"
     >
         <transition name="fade">
-        <h2 v-if="selectedFeedNames !== ''">Graph: {{ selectedFeedNames }} </h2>
+        <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ selectedFeedNames }} </h2>
         </transition>
         <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
             <div id="graph"></div>
@@ -197,7 +194,7 @@
 
 
 
-    <div id="feedslist-section" class="col animate" :class="{'narrow': view === 'graph'}">
+    <div id="feedslist-section" class="col animate" :class="{'col-4': view === 'graph'}">
 
 <!--
     slected feeds: {{selectedFeeds.length}}
@@ -226,7 +223,7 @@
                 v-bind:aria-controls="'collapse_' + node.id"
                 >
                     <div class="d-flex col justify-content-between">
-                        <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': view === 'graph'}">{{node.tag}} :
+                        <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': view === 'graph'}">{{node.tag}}
                             <transition name="fade">
                             <small v-if="nodeSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted d-narrow-none">
                                 ({{ nodeSelectedFeeds(node_id).length }})
@@ -278,9 +275,9 @@
                                             <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
                                         </div>
                                     </div>
-                                    <div class="feed-name col text-truncate pl-1 col-md-5 col-xl-4" 
+                                    <div class="feed-name text-truncate col pl-1" 
                                         v-bind:title="feed.name"
-                                        v-bind:class="{'pl-3': view !== 'list', 'col-12': view !== 'list','col-md-12': view !== 'list','col-xl-12': view !== 'list'}" 
+                                        v-bind:class="feedListItemNameClass" 
                                         v-on:click.self="toggleSelected($event, feed)"
                                     >
                                         {{feed.name}}
@@ -826,6 +823,16 @@ MQTT.connect(feedlistPublishOptions);
                 }
                 return size;
             }
+        },
+        computed: {
+            feedListItemNameClass: function () {
+                if (this.view === 'graph') {
+                    result = 'col-md-12 col-xl-12';
+                } else {
+                    result = 'col-md-5 col-xl-4';
+                }
+                return result.split(' ');
+            }
         }
     }); // end of feed list vuejs
     
@@ -904,14 +911,8 @@ MQTT.connect(feedlistPublishOptions);
             feeds: function(){
                 return this.shared.feeds;
             },
-            selectedFeeds: {
-                get: function() {
-                    return STORE.getSelectedFeeds() || false;
-                },
-                set: function() {
-                    alert('is this called needed?');
-                    STORE.setSelectedFeeds();
-                }
+            selectedFeeds: function() {
+                return this.shared.selectedFeeds;
             },
             selectedFeedNames: function(){
                 names = [];
@@ -923,7 +924,7 @@ MQTT.connect(feedlistPublishOptions);
             }
         },
         watch: {
-            feeds: {
+            selectedFeeds: {
                 handler(){
                     // if selected feeds un-selected then hide graph
                     if (this.debug) log(view,'::nodes changed');
