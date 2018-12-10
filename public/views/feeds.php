@@ -410,6 +410,7 @@ var STORE = {
         if (typeof state === 'undefined') state = false;
         logger.debug('toggleFeedSelected() triggered to', state, feed.id);
         feed.selected = state;
+        this.setSelectedFeeds();
     },
     getFeed(id){
         for (index in this.state.feeds) {
@@ -925,7 +926,11 @@ MQTT.connect(feedlistPublishOptions);
                     var feed = this.selectedFeeds[i];
                     names.push(feed.name);
                 }
-                return names.join(', ');
+                if (names.length > 2) {
+                    return names.length + ' feeds selected';
+                } else {
+                    return names.join(', ');
+                }
             }
         },
         watch: {
