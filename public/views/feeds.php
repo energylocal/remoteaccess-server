@@ -53,7 +53,8 @@
     #graph{
         margin-top: -.5rem;
     }
-    #feedslist-section.narrow #feed-list > li {
+    #feed-list > li .feed-name,
+    #feedslist-section.narrow #feed-list > li .feed-name {
         cursor: pointer;
     }
     /* show feed update status as red,yellow,green circle  - mobile only*/
@@ -101,7 +102,12 @@
         <h2 class="mb-1 mr-2 text-nowrap">Feed List</h2>
         <button id="toggleRefresh" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
     </div>
-    <div id="dev"><mark>{{ view }}</mark></div>
+    
+    <!-- remove for production -->
+    <div id="dev">
+        <mark>{{ selectedFeeds.length }}/{{ feeds.length }} - {{ this.view }}</mark>
+    </div>
+    
     <nav id="feedlist-buttons" class="btn-toolbar d-flex justify-sm-content-end" role="toolbar" aria-label="feed buttons">
         <div id="list-buttons" class="btn-group align-items-start mb-1" role="group" aria-label="Basic example">
             <button id="collapse-all"
@@ -123,15 +129,15 @@
 
         <div id="feed-buttons" class="btn-group align-items-start mb-1 ml-1" role="group" aria-label="Feed Specific actions">
             <button type="button" class="btn btn-info" title="View Selected feeds as a graph" 
-                v-on:click="graphFeeds"
+                v-on:click.prevent="graphFeeds"
                 :aria-pressed="view === 'graph'"
                 :class="{'active': view === 'graph'}"
-                :disabled="STORE.getSelectedFeeds().length === 0"
+                :disabled="selectedFeeds.length === 0"
             >
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#view"></use></svg>
             </button>
             <button type="button" class="btn btn-info" title="@todo: Edit selected feeds"
-                v-on:click="editFeeds"
+                v-on:click.prevent="editFeeds"
                 :aria-pressed="view === 'edit'"
                 :class="{'active': view === 'edit'}"
                 :disabled="true"
@@ -139,7 +145,7 @@
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#edit"></use></svg>
             </button>
             <button type="button" class="btn btn-info" title="@todo: Delete selected feeds"
-                v-on:click="deleteFeeds"
+                v-on:click.prevent="deleteFeeds"
                 :aria-pressed="view === 'delete'"
                 :class="{'active': view === 'delete'}"
                 :disabled="true"
@@ -147,7 +153,7 @@
                 <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor"><use href="#delete"></use></svg>
             </button>
             <button type="button" class="btn btn-info" title="@todo: Download selected feeds"
-                v-on:click="downloadFeeds"
+                v-on:click.prevent="downloadFeeds"
                 :aria-pressed="view === 'download'"
                 :class="{'active': view === 'download'}"
                 :disabled="true"
@@ -192,9 +198,22 @@
 
 
     <div id="feedslist-section" class="col animate" :class="{'narrow': view === 'graph'}">
+
+<!--
+    slected feeds: {{selectedFeeds.length}}
+    <ul v-for="node in nodes">
+        <li v-for="feed in node.feeds" @click="feed.selected = !feed.selected;" :class="{'bg-primary':feed.selected}">
+            {{feed.name}} {{feed.selected}}
+        </li>
+    </ul>
+-->
+
+
+
         <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
             <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
         </div>
+
         <div v-for="(node, node_id) in nodes"
             v-bind:class="node.status"
             class="card dropup mb-1"
@@ -209,8 +228,8 @@
                     <div class="d-flex col justify-content-between">
                         <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': view === 'graph'}">{{node.tag}} :
                             <transition name="fade">
-                            <small v-if="STORE.getSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted d-narrow-none">
-                                ({{ STORE.getNodeSelectedFeeds(node_id).length }})
+                            <small v-if="nodeSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted d-narrow-none">
+                                ({{ nodeSelectedFeeds(node_id).length }})
                             </small>
                             </transition>
                         </h5>
@@ -236,12 +255,12 @@
             >
                 <ul id="feed-list" class="list-group list-group-flush">
                     <li class="list-group-item pl-0"
+                        v-for="(feed, feed_id) in node.feeds"
                         data-toggle="popover"
                         data-content="@todo: fill tooltip"
-                        v-for="(feed, feed_id) in node.feeds"
-                        v-bind:class="getFeedClass(feed)"
-                        v-bind:title="feed.id"
-                        v-on:click.stop="itemClicked(feed)"
+                        v-bind:class="feedListItemClass(feed)"
+                        v-bind:data-id="feed.id"
+                        v-bind:title="'feed #' + feed.id"
                     >
                         <div class="d-flex justify-content-between" :class="{'no-gutters': view === 'list'}">
                             <div class="col col-8 col-lg-9" :class="{'col-12': view === 'graph','col-lg-12': view === 'graph'}">
@@ -253,16 +272,16 @@
                                                 aria-label="select this feed"
                                                 v-bind:id="'select-feed-' + feed.id"
                                                 v-bind:data-id="feed.id"
-                                                v-bind:checked="feed.selected"
-                                                v-on:change="feed.selected = $event.target.checked"
-                                                v-on:click.stop="return true"
+                                                v-model="feed.selected"
+                                                v-on:change="setSelectedFeeds"
                                             >
                                             <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
                                         </div>
                                     </div>
-                                    <div class="col text-truncate pl-1 col-md-5 col-xl-4" 
+                                    <div class="feed-name col text-truncate pl-1 col-md-5 col-xl-4" 
                                         v-bind:title="feed.name"
                                         v-bind:class="{'pl-3': view !== 'list', 'col-12': view !== 'list','col-md-12': view !== 'list','col-xl-12': view !== 'list'}" 
+                                        v-on:click.self="toggleSelected($event, feed)"
                                     >
                                         {{feed.name}}
                                     </div>
@@ -313,49 +332,112 @@ var SESSION = <?php echo json_encode($session); ?>;
 // application settings
 var SETTINGS = <?php echo json_encode($settings); ?>;
 
+LOG_LEVEL = 2;
+DEBUG = true;
+Vue.config.productionTip = false
+
+logger = (function(logLevel, isDebug){
+    //labels for console messages
+    //  log, info, debug, verbose
+    var types = ',🥑,🍒,🥦,🌶'.split(',');
+    
+    // ouput to console.log
+    function print() {
+        // if ( ! window.console ) return;
+        var args = Array.prototype.slice.call(arguments);
+        var type = args.shift();
+        args.unshift(types[type]);
+        var type = type || 1;
+
+        // console.log(arguments);
+        if (isDebug) {
+            if (logLevel > 0) {
+                if (type <= logLevel) {
+                    console.log.apply(null, args);
+                }
+            }else{
+                console.log('logging disabled');
+            }
+        }
+    }
+    log = function() {
+        print.apply(null, addArg(1, arguments));
+    }
+    info = function() { 
+        print.apply(null, addArg(2, arguments));
+    }
+    debug = function() { 
+        print.apply(null, addArg(3, arguments));
+    }
+    verbose = function() { 
+        print.apply(null, addArg(4, arguments));
+    }
+    
+    addArg = function(arg, Arguments){
+        var args = Array.prototype.slice.call(Arguments);
+        args.unshift(arg);
+        return args;
+    }
+
+    return {
+        log: log,
+        info: info,
+        debug: debug,
+        verbose: verbose
+    }
+    
+})(LOG_LEVEL, DEBUG);
+
+// --------------------------------------
+
 // GLOBAL APP STATE for all vue instances
+// includes function to modify the app state values
+
 var STORE = {
     debug: true,
     home: 'list',
     state: {
+        feeds: [],
         nodes: {},
         selectedFeeds: [],
-        graphSelectedFeeds: [],
-        editSelectedFeeds: [],
-        deleteSelectedFeeds: [],
         connected: false,
         view: 'list'
     },
     // edit the shared store's state with internal functions...
     toggleCollapsed: function(tag, state) {
         if (typeof state === 'undefined') state = true;
-        if (this.debug) console.log('toggleCollapsed() triggered with', tag, state);
+        logger.debug('toggleCollapsed() triggered with', tag, state);
         if (this.state.nodes[tag]) this.state.nodes[tag].collapsed = state;
     },
     toggleFeedSelected: function(tag, id, state) {
         if (typeof state === 'undefined') state = false;
-        if (this.debug) console.log('toggleFeedSelected() triggered with', tag, id, state);
+        logger.debug('toggleFeedSelected() triggered with', tag, id, state);
         if (this.state.nodes[tag] && this.state.nodes[tag].feeds[id]) this.state.nodes[tag].feeds[id].selected = state;
     },
-    setNodes: function(nodes){
-        // if (this.debug) console.log('setNodes() triggered with', nodes);
-        this.state.nodes = nodes;
+    getFeed(id){
+        for (index in this.state.feeds) {
+            feed = this.state.feeds[index];
+            if (feed.id === id) return feed;
+        }
+        return null;
+    },
+    getFeeds(){
+        return this.state.feeds;
+    },
+    setFeeds(feeds){
+        this.state.feeds = feeds;
+        this.setNodes();
+    },
+    setView: function(newView) {
+        this.state.view = newView;
     },
     // toggle back to default when view already set
     toggleView: function(newView) {
         if (typeof newView === 'undefined') return false;
 
         newView = this.state.view === newView ? this.home : newView;
-        if (this.debug) console.log('MODE::: toggleView() set to ', newView);
-        this.state.view = newView;
-    },
-    // aggrigate functions based on store properties
-    totalFeeds: function() {
-        var totalFeeds = 0;
-        for(n in this.state.nodes) {
-            totalFeeds += Object.values(this.state.nodes[n].feeds).length;
-        }
-        return totalFeeds;
+        logger.verbose('MODE::: toggleView() set to ', newView);
+        this.setView(newView);
     },
     // return array of selected feeds for a given tag
     getNodeSelectedFeeds: function(tag) {
@@ -370,61 +452,70 @@ var STORE = {
     // return array of all selected feeds
     getSelectedFeeds: function() {
         var selected = [];
-        for(n in this.state.nodes) {
-            let nodeSelectedFeeds = this.getNodeSelectedFeeds(n);
-            for(s in nodeSelectedFeeds){
-                selected.push(nodeSelectedFeeds[s]);
+        for(n in this.state.feeds) {
+            let feed = this.state.feeds[n];
+            if(feed.selected === true){
+                selected.push(feed);
             }
         }
         return selected;
     },
     setSelectedFeeds: function() {
-        if (this.debug) console.log('setSelectedFeeds() triggered');
-        var selectedFeeds = 
+        logger.verbose('getSelectedFeeds() triggered');
         this.state.selectedFeeds = this.getSelectedFeeds();
+    },
+    setNodes: function(){
+        logger.debug('setNodes() triggered');
+
+        var nodes = {}
+        for (key in this.state.feeds) {
+            let feed = this.state.feeds[key];
+            if(typeof nodes[feed.tag] === 'undefined') {
+                nodes[feed.tag] = {
+                    tag: feed.tag,
+                    id: camelCase(feed.tag)
+                }
+            }
+            // only create the node if it doesn't already exist
+            if(typeof nodes[feed.tag].feeds === 'undefined'){
+                nodes[feed.tag].feeds = [];
+            }
+            // add the feed to the parent node
+            nodes[feed.tag].feeds.push(feed);
+        }
+
+        // total up the node's feed properties
+        var prevNodes = this.getNodes();
+
+        for (n in nodes) {
+            let lastupdate = 0;
+            let size = 0;
+            let node = nodes[n];
+            for (f in node.feeds) {
+                let feed = node.feeds[f];
+                if (feed){
+                    size += parseInt(feed.size);
+                    lastupdate = parseInt(feed.time) > lastupdate ? parseInt(feed.time) : lastupdate;
+                    // Declaring Reactive "selected" Property
+                    if (prevNodes[n]) {
+                        Vue.set(feed, 'selected', prevNodes[n].feeds[f].selected === true);
+                    } else {
+                        Vue.set(feed, 'selected', false);
+                    }
+                }
+            }
+            node.collapsed = prevNodes[n] ? prevNodes[n].collapsed : true;
+            node.size = size;
+            node.lastupdate = lastupdate;
+        }
+        STORE.state.nodes = nodes;
+    },
+    // return new object with each feed tag as individual object with "feeds" property
+    getNodes: function() {
+        return this.state.nodes;
     }
 } // end of STORE
 
-// Debug
-var DEBUG = STORE.debug || false;
-
-// return new object with each feed tag as individual object with "feeds" property
-function groupFeeds(feeds) {
-    var nodes = {}
-    for (key in feeds) {
-        let feed = feeds[key];
-        if(typeof nodes[feed.tag] === 'undefined') {
-            nodes[feed.tag] = {
-                tag: feed.tag,
-                id: camelCase(feed.tag)
-            }
-        }
-        // only create the node if it doesn't already exist
-        if(typeof nodes[feed.tag].feeds === 'undefined'){
-            nodes[feed.tag].feeds = {};
-        }
-        // add the feed to the parent node
-        nodes[feed.tag].feeds[feed.id] = feed;
-    }
-
-    // total up the node's feed properties
-    prevNodes = STORE.state.nodes;
-    for (n in nodes) {
-        let lastupdate = 0;
-        let size = 0;
-        let node = nodes[n];
-        for (f in node.feeds) {
-            let feed = node.feeds[f];
-            size += parseInt(feed.size);
-            lastupdate = parseInt(feed.time) > lastupdate ? parseInt(feed.time) : lastupdate;
-            feed.selected = prevNodes[n] && prevNodes[n].feeds[f] ? prevNodes[n].feeds[f].selected : false;
-        }
-        node.collapsed = prevNodes[n] ? prevNodes[n].collapsed : true;
-        node.size = size;
-        node.lastupdate = lastupdate;
-    }
-    return nodes;
-}
 
 // VARIABLES, FUNCTIONS AND INIT
 //----------------------------------------------------------------------------------------
@@ -442,7 +533,7 @@ function on_off(event) {
     event.preventDefault()
     btn = event.target
     if (btn.dataset.status == 'connected') {
-        if (DEBUG) console.log('mqtt: publish interval interrupted. #', MQTT.getInterval());
+        logger.debug('MQTT: publish interval interrupted. #', MQTT.getInterval());
         MQTT.pause();
     } else {
         MQTT.loop(feedlistPublishOptions);
@@ -469,30 +560,11 @@ function camelCase(str) {
     if(typeof str != 'undefined') return str.toLowerCase().replace(' ','_')
 }
 
-// return list of css classes for list-group-item based on feed values
-function getFeedClass(feed) {
-    var lastUpdated = new Date(feed.time * 1000);
-    var now = new Date().getTime();
-    var elapsed = (now - lastUpdated) / 1000;
-    var missedIntervals = parseInt(elapsed / feed.interval);
-    var css_classes = [];
-    css_classes.push('list-group-item-success');
-    if (missedIntervals > 8) {
-        css_classes.push('list-group-item-danger');
-    } else if (missedIntervals > 2) {
-        css_classes.push('list-group-item-warning');
-    }
 
-    if(feed.selected) {
-        css_classes.push('list-group-item-selected');
-    }
-    return css_classes.join(' ');
-}
-
-
-// mqtt client instance
+// MQTT RELATED FACTORY IIFE
+// (Immediately Invoked Function Expression)
 //----------------------------------------------------------------------------------------
-var MQTT = (function(session, settings) {
+var MQTT = (function(session, settings, logger) {
     mqttClient = null;
     // mqtt broker connection settings
     var brokerOptions = {
@@ -519,11 +591,12 @@ var MQTT = (function(session, settings) {
     // connect to mqtt broker
     // add callback function to run when subscribed topic messages arrive
     function connectToBroker(options) {
-        if (DEBUG) console.log('mqtt: connect() called with ', options);
+        logger.debug('MQTT: connect() called with ', options);
         mqttClient = mqtt.connect(brokerOptions.host, brokerOptions);
 
         mqttClient.on('connect', function () {
-            if (DEBUG) console.log('mqtt: on connect event called. connected.');
+            logger.verbose('MQTT: on connect event called. connected.');
+            STORE.state.connected = true;
             mqttClient.subscribe("user/" + brokerOptions.username+"/response/" + brokerOptions.clientId, function (err) {
                 if (!err && typeof options != 'undefined') {
                     publishToBrokerAtInterval(options);
@@ -537,34 +610,34 @@ var MQTT = (function(session, settings) {
         * @arg Buffer message
         */
         mqttClient.on('message', function(topic, message) {
+            logger.info('MQTT: received message from ', topic);
             var response = JSON.parse(message.toString()); // decode stream
-            if (DEBUG) console.log('mqtt: received message from ', topic, '. original request: ', response.request.action);
+            logger.verbose('MQTT: original request: ', response.request.action);
             var result = response.result;
             switch(response.request.action) {
                 case 'feed/list':
-                    if (DEBUG) console.log('STORE: setNodes()');
-                    var nodes = groupFeeds(result);
-                    STORE.setNodes(nodes);
+                    logger.debug('STORE: setNodes()');
+                    STORE.setFeeds(result);
                 break;
                 case 'feed/data':
-                    if (DEBUG) console.log('GRAPH: plot()');
+                    logger.debug('GRAPH: plot()');
                     GRAPH.plot(response);
                 break;
                 default:
-                    if (DEBUG) console.log('mqtt: cannot respond to unrecognized action ', response.request.action);
+                    logger.debug('MQTT: cannot respond to unrecognized action ', response.request.action);
             }
         });
     }
 
     // publish request to mqtt broker
     function publishToBroker(options) {
-        if (DEBUG) console.log('mqtt: publishing to request: ', options.action);
+        logger.debug('MQTT: publishing to request: ', options.action);
         mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(options))
     }
 
     // disconnect from mqtt broker
     function disconnectFromBroker() {
-        if (DEBUG) console.log('mqtt: disconnect() called.');
+        logger.debug('MQTT: disconnect() called.');
         mqttClient.end()
         // stop the looping of publishing to topic
         clearInterval(publishInterval);
@@ -573,7 +646,7 @@ var MQTT = (function(session, settings) {
 
     // start a setInterval at 5s
     function publishToBrokerAtInterval(options) {
-        if (DEBUG) console.log('mqtt: publish interval started with', options);
+        logger.verbose('MQTT: publish interval started with', options);
 
         var btn = document.querySelector('#toggleRefresh');
         if (btn) {
@@ -582,6 +655,7 @@ var MQTT = (function(session, settings) {
         }
 
         publishToBroker(options);
+        // logger.log('stopped auto reload of data for testing');
         setPublishInterval(setInterval(function(){
             publishToBroker(options)
         }, 5000));
@@ -613,18 +687,18 @@ var MQTT = (function(session, settings) {
         pause: interruptPublishInterval,
         options: brokerOptions
     }
-})(SESSION, SETTINGS);
-// end of mqtt "module"
+})(SESSION, SETTINGS, logger);
+// end of MQTT IIFE
 //----------------------------------------------------------------------------------------
 
 
 // Graph related code
 //----------------------------------------------------------------------------------------
-var GRAPH = (function (session, settings, endpoints, mqtt){
+var GRAPH = (function (session, settings, endpoints, mqtt, logger){
     var brokerOptions = mqtt.options;
 
     function get_feed_data(feedid, start, end, interval, skipmissing, limitinterval) {
-        console.log("mqtt: requesting feed data");
+        logger.info("GRAPH: requesting feed data");
         var publish_options = {
             clientId: brokerOptions.clientId,
             action: endpoints.graph,
@@ -662,7 +736,7 @@ var GRAPH = (function (session, settings, endpoints, mqtt){
         $.plot(placeholder, [{data:response.result}], options);
     }
     function draw(){
-        console.log('graph draw');
+        logger.verbose('GRAPH: draw()');
     }
 
     // public functions
@@ -671,8 +745,8 @@ var GRAPH = (function (session, settings, endpoints, mqtt){
         plot: plot,
         draw: draw
     }
-})(SESSION, SETTINGS, ENDPOINTS, MQTT);
-
+})(SESSION, SETTINGS, ENDPOINTS, MQTT, logger);
+// end of graph self executing factory function
 
 // auto connect on load:
 var feedlistPublishOptions = {
@@ -699,14 +773,47 @@ MQTT.connect(feedlistPublishOptions);
             list_format_value: function(value) {
                 return list_format_value(value);
             },
-            itemClicked: function(feed) {
-                if(true || this.view === 'graph') {
+            toggleSelected: function(event, feed) {
+                logger.verbose('vm->list:toggleSelected() triggered with',event.type,feed.id);
+
+                if (event.type === 'click'){
+                    // if event not triggered by click (not change or input)
                     feed.selected = feed.selected === true ? false : true;
+                    this.$nextTick(function () {
+                        this.setSelectedFeeds();
+                    })
                 }
+            },
+            missedIntervals(feed) {
+                var lastUpdated = new Date(feed.time * 1000);
+                var now = new Date().getTime();
+                var elapsed = (now - lastUpdated) / 1000;
+                var missedIntervals = parseInt(elapsed / feed.interval);
+                return missedIntervals;
+            },
+            feedListItemClass: function (feed) {
+                var missedIntervals = this.missedIntervals(feed);
+                var result = [];
+                if (missedIntervals < 3) result.push('list-group-item-success');
+                if (missedIntervals > 2 && missedIntervals < 9) result.push('list-group-item-warning');
+                if (missedIntervals > 8) result.push('list-group-item-danger');
+                if (feed.selected) result.push('list-group-item-selected');
+                return result;
+            },
+            nodeSelectedFeeds: function(node_id) {
+                return STORE.getSelectedFeeds(node_id).length > 0;
+            },
+            getEngineName: function(feed) {
+                return getEngineName(feed);
+            },
+            setSelectedFeeds: function() {
+                STORE.setSelectedFeeds();
             }
         },
         filters: {
             prettySize: function (bytes) {
+                if (typeof bytes === 'undefined') return;
+
                 var decimals = 0
                 var size = new Number(bytes).toFixed(decimals) + 'B';
                 var length = bytes.toString().length
@@ -719,16 +826,6 @@ MQTT.connect(feedlistPublishOptions);
                 }
                 return size;
             }
-        },
-        computed: {
-            selectedFeeds: function() {
-                return STORE.getSelectedFeeds();
-            }
-        },
-        watch: {
-            selectedFeeds: function(){
-                // STORE.setSelectedFeeds();
-            }
         }
     }); // end of feed list vuejs
     
@@ -737,7 +834,7 @@ MQTT.connect(feedlistPublishOptions);
         el: '#feedlist-buttons',
         data: STORE.state,
         methods: {
-            // if any nodes collapsed, expand all; else collapse all.itemClicked
+            // if any nodes collapsed, expand all; else collapse all
             toggleCollapseAllNodes: function() {
                 var totalCollapsed = 0;
                 // count collapsed nodes
@@ -755,7 +852,7 @@ MQTT.connect(feedlistPublishOptions);
             // if all feeds selected, select none; else select all.
             toggleSelectAllFeeds: function() {
                 var totalSelected = STORE.getSelectedFeeds().length;
-                var totalFeeds = STORE.totalFeeds();
+                var totalFeeds = STORE.getFeeds().length;
                 var state = totalSelected < totalFeeds;
                 // change feed state
                 for(n in this.nodes) {
@@ -767,26 +864,22 @@ MQTT.connect(feedlistPublishOptions);
                 }
             },
             editFeeds: function(event) {
-                if (STORE.debug) console.log('edit() triggered with', event);
-                event.preventDefault();
+                logger.verbose('vm=>btns: edit() triggered with', event);
                 STORE.toggleView('edit');
                 // @todo
             },
             deleteFeeds: function(event) {
-                if (STORE.debug) console.log('delete() triggered with', event);
-                event.preventDefault();
+                logger.verbose('vm=>btns: delete() triggered with', event);
                 STORE.toggleView('delete');
                 // @todo
             },
             downloadFeeds: function(event) {
-                if (STORE.debug) console.log('download() triggered with', event);
-                event.preventDefault();
+                logger.verbose('vm=>btns: download() triggered with', event);
                 STORE.toggleView('download');
                 // @todo
             },
             graphFeeds: function(event) {
-                if (STORE.debug) console.log('view() graphFeeds() triggered with', event.type);
-                event.preventDefault();
+                logger.verbose('vm=>btns: view() graphFeeds() triggered with', event.type);
                 STORE.setSelectedFeeds();
                 STORE.toggleView('graph');
             }
@@ -802,12 +895,21 @@ MQTT.connect(feedlistPublishOptions);
                 placeholder_bound: document.getElementById('graph_bound')
             }
         },
+        methods: {
+            plot: function(){
+                GRAPH.plot();
+            }
+        },
         computed: {
+            feeds: function(){
+                return this.shared.feeds;
+            },
             selectedFeeds: {
                 get: function() {
                     return STORE.getSelectedFeeds() || false;
                 },
                 set: function() {
+                    alert('is this called needed?');
                     STORE.setSelectedFeeds();
                 }
             },
@@ -821,26 +923,38 @@ MQTT.connect(feedlistPublishOptions);
             }
         },
         watch: {
-            selectedFeeds: function(newVal, oldVal) {
-                if (this.debug) console.log(view,'::selectedFeeds changed', newVal, oldVal);
+            feeds: {
+                handler(){
+                    // if selected feeds un-selected then hide graph
+                    if (this.debug) log(view,'::nodes changed');
 
-                if(newVal.length > 0) {
-                    if (this.view === 'graph') {
-                        var feed = newVal[0];
-                        var npoints = 800;
-                        var timeWindow = 3600000 * 24; // one hour x 24 = one day
-                        var feedid = feed.id;
-                        var start = new Date() - timeWindow;
-                        var end = new Date().getTime();
-                        var interval = Math.round(((end - start)/npoints)/1000);
-                        var skipmissing = 1;
-                        var limitinterval = 1;
+                    if (this.shared.view === 'graph') {
+                        if(this.shared.selectedFeeds.length <= 0) {
+                            // show full list if none selected
+                            STORE.setView('list');
+                        }else{
+                            // draw and plot graph
+                            var npoints = 800;
+                            var timeWindow = 3600000 * 24; // one hour x 24 = one day
+                            var start = new Date() - timeWindow;
+                            var end = new Date().getTime();
+                            var interval = Math.round(((end - start)/npoints)/1000);
+                            var skipmissing = 1;
+                            var limitinterval = 1;
 
-                        GRAPH.draw(); // set out the graph
-                        // request the data. received data will be plotted
-                        GRAPH.getData(feedid,start,end,interval,skipmissing,limitinterval);
+                            var feedids = [];
+                            for (z in this.shared.selectedFeeds) {
+                                let feed = this.shared.selectedFeeds[z];
+                                feedids.push(feed.id); 
+                            }
+
+                            GRAPH.draw(); // set out the graph
+                            // request the data. received data will be plotted
+                            GRAPH.getData(feedids.join('|'),start,end,interval,skipmissing,limitinterval);
+                        }
                     }
-                }
+                },
+                deep: true
             }
         },
         mounted() {
@@ -854,19 +968,12 @@ MQTT.connect(feedlistPublishOptions);
                 vm.private.placeholder.height = height - top_offset;
                 vm.plot();
             });
-        },
-        methods: {
-            plot: function(){
-                GRAPH.plot()
-            }
         }
     }); // end of #graph vuejs
 
     // --------------------------------debug remove for production
-    new Vue({
-        el: "#dev",
-        data: STORE.state
-    })
+    new Vue({el: "#dev", data: STORE.state})
+
 
 </script>
 
@@ -883,6 +990,10 @@ MQTT.connect(feedlistPublishOptions);
             var tag = $(this).data('key');
             if(tag) STORE.toggleCollapsed(tag, false)
         })
+        // setTimeout(function(){
+        //     logger.info('switching off autoreload during debug');
+        //     $('#toggleRefresh').click()
+        // }, 1000);
     })
 
 </script>
