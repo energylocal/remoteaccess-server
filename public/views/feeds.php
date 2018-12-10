@@ -99,7 +99,7 @@
     </div>
     
     <!-- remove for production -->
-    <div id="dev">
+    <div id="dev" class="d-none">
         <mark>{{ selectedFeeds.length }}/{{ feeds.length }} - {{ this.view }}</mark>
     </div>
     
@@ -211,7 +211,7 @@
             <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
         </div>
 
-        <div v-for="(node, node_id) in nodes"
+        <div v-for="(node, nodes_key) in nodes"
             v-bind:class="node.status"
             class="card dropup mb-1"
         >
@@ -225,8 +225,8 @@
                     <div class="d-flex col justify-content-between">
                         <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': view === 'graph'}">{{node.tag}}
                             <transition name="fade">
-                            <small v-if="nodeSelectedFeeds(node_id).length > 0" class="font-weight-light text-muted d-narrow-none">
-                                ({{ nodeSelectedFeeds(node_id).length }})
+                            <small v-if="nodeSelectedFeeds(nodes_key).length > 0" class="font-weight-light text-muted d-narrow-none pl-1">
+                                ({{ nodeSelectedFeeds(nodes_key).length }})
                             </small>
                             </transition>
                         </h5>
@@ -246,7 +246,7 @@
 
             <div class="collapse"
                 v-bind:id="'collapse_' + node.id"
-                v-bind:data-key="node_id"
+                v-bind:data-key="nodes_key"
                 v-bind:class="{'show': !node.collapsed}"
                 v-bind:aria-labelledby="'heading_' + node.id"
             >
@@ -406,10 +406,10 @@ var STORE = {
         logger.debug('toggleCollapsed() triggered with', tag, state);
         if (this.state.nodes[tag]) this.state.nodes[tag].collapsed = state;
     },
-    toggleFeedSelected: function(tag, id, state) {
+    toggleFeedSelected: function(feed, state) {
         if (typeof state === 'undefined') state = false;
-        logger.debug('toggleFeedSelected() triggered with', tag, id, state);
-        if (this.state.nodes[tag] && this.state.nodes[tag].feeds[id]) this.state.nodes[tag].feeds[id].selected = state;
+        logger.debug('toggleFeedSelected() triggered to', state, feed.id);
+        feed.selected = state;
     },
     getFeed(id){
         for (index in this.state.feeds) {
@@ -437,12 +437,16 @@ var STORE = {
         this.setView(newView);
     },
     // return array of selected feeds for a given tag
-    getNodeSelectedFeeds: function(tag) {
+    getNodeSelectedFeeds: function(nodes_key) {
         var selected = [];
-        let node = this.state.nodes[tag];
-        for(f in node.feeds) {
-            let feed = node.feeds[f];
-            if(feed.selected === true) selected.push(feed);
+        let node = this.state.nodes[nodes_key];
+        if (typeof node !== 'undefined') {
+            for(f in node.feeds) {
+                let feed = node.feeds[f];
+                if(feed.selected === true) {
+                    selected.push(feed);
+                }
+            }
         }
         return selected;
     },
@@ -797,8 +801,9 @@ MQTT.connect(feedlistPublishOptions);
                 if (feed.selected) result.push('list-group-item-selected');
                 return result;
             },
-            nodeSelectedFeeds: function(node_id) {
-                return STORE.getSelectedFeeds(node_id).length > 0;
+            nodeSelectedFeeds: function(nodes_key) {
+                var selectedNodeFeeds = STORE.getNodeSelectedFeeds(nodes_key);
+                return selectedNodeFeeds;
             },
             getEngineName: function(feed) {
                 return getEngineName(feed);
@@ -866,7 +871,7 @@ MQTT.connect(feedlistPublishOptions);
                     let node = this.nodes[n];
                     for(f in node.feeds) {
                         let feed = node.feeds[f];
-                        STORE.toggleFeedSelected(feed.tag, feed.id, state)
+                        STORE.toggleFeedSelected(feed, state);
                     }
                 }
             },
