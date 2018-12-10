@@ -172,8 +172,9 @@
         <transition name="fade">
         <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ selectedFeedNames }} </h2>
         </transition>
+        <h4 v-if="status !== 'ready'"> {{status}} </h4>
         <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
-            <div id="graph"></div>
+            <div id="graph" class="h-100 w-100 bg-light"></div>
             <div id="graph-buttons" style="position:absolute; top:18px; right:32px; opacity:0.5;">
                 <div class='btn-group'>
                     <button class='btn graph-time' type='button' time='1'>D</button>
@@ -329,14 +330,14 @@ var SESSION = <?php echo json_encode($session); ?>;
 // application settings
 var SETTINGS = <?php echo json_encode($settings); ?>;
 
-LOG_LEVEL = 2;
+LOG_LEVEL = 3;
 DEBUG = true;
 Vue.config.productionTip = false
 
 logger = (function(logLevel, isDebug){
     //labels for console messages
     //  log, info, debug, verbose
-    var types = ',🥑,🍒,🥦,🌶'.split(',');
+    var types = ',🔷,🔶,🔵,🔴'.split(',');
     
     // ouput to console.log
     function print() {
@@ -398,7 +399,8 @@ var STORE = {
         nodes: {},
         selectedFeeds: [],
         connected: false,
-        view: 'list'
+        view: 'list',
+        status: 'ready'
     },
     // edit the shared store's state with internal functions...
     toggleCollapsed: function(tag, state) {
@@ -467,7 +469,7 @@ var STORE = {
         this.state.selectedFeeds = this.getSelectedFeeds();
     },
     setNodes: function(){
-        logger.debug('setNodes() triggered');
+        logger.verbose('setNodes() triggered');
 
         var nodes = {}
         for (key in this.state.feeds) {
@@ -515,6 +517,9 @@ var STORE = {
     // return new object with each feed tag as individual object with "feeds" property
     getNodes: function() {
         return this.state.nodes;
+    },
+    setStatus: function(status) {
+        this.state.status = status;
     }
 } // end of STORE
 
@@ -566,7 +571,7 @@ function camelCase(str) {
 // MQTT RELATED FACTORY IIFE
 // (Immediately Invoked Function Expression)
 //----------------------------------------------------------------------------------------
-var MQTT = (function(session, settings, logger) {
+var MQTT = (function(store, session, settings, logger) {
     mqttClient = null;
     // mqtt broker connection settings
     var brokerOptions = {
@@ -593,12 +598,13 @@ var MQTT = (function(session, settings, logger) {
     // connect to mqtt broker
     // add callback function to run when subscribed topic messages arrive
     function connectToBroker(options) {
-        logger.debug('MQTT: connect() called with ', options);
+        logger.debug('MQTT: connect() called with clientId:', options.clientId);
         mqttClient = mqtt.connect(brokerOptions.host, brokerOptions);
 
-        mqttClient.on('connect', function () {
-            logger.verbose('MQTT: on connect event called. connected.');
-            STORE.state.connected = true;
+        mqttClient.on('connect', function (connack) {
+            logger.log('MQTT: connected');
+            logger.verbose('MQTT: on connect event called with', connack);
+            store.state.connected = true;
             mqttClient.subscribe("user/" + brokerOptions.username+"/response/" + brokerOptions.clientId, function (err) {
                 if (!err && typeof options != 'undefined') {
                     publishToBrokerAtInterval(options);
@@ -612,14 +618,14 @@ var MQTT = (function(session, settings, logger) {
         * @arg Buffer message
         */
         mqttClient.on('message', function(topic, message) {
-            logger.info('MQTT: received message from ', topic);
+            logger.debug('MQTT: received message from topic: ', topic);
             var response = JSON.parse(message.toString()); // decode stream
             logger.verbose('MQTT: original request: ', response.request.action);
             var result = response.result;
             switch(response.request.action) {
                 case 'feed/list':
                     logger.debug('STORE: setNodes()');
-                    STORE.setFeeds(result);
+                    store.setFeeds(result);
                 break;
                 case 'feed/data':
                     logger.debug('GRAPH: plot()');
@@ -633,7 +639,7 @@ var MQTT = (function(session, settings, logger) {
 
     // publish request to mqtt broker
     function publishToBroker(options) {
-        logger.debug('MQTT: publishing to request: ', options.action);
+        logger.debug('MQTT: publishing to request: ', options);
         mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(options))
     }
 
@@ -689,23 +695,23 @@ var MQTT = (function(session, settings, logger) {
         pause: interruptPublishInterval,
         options: brokerOptions
     }
-})(SESSION, SETTINGS, logger);
+})(STORE, SESSION, SETTINGS, logger);
 // end of MQTT IIFE
 //----------------------------------------------------------------------------------------
 
 
 // Graph related code
 //----------------------------------------------------------------------------------------
-var GRAPH = (function (session, settings, endpoints, mqtt, logger){
+var GRAPH = (function (store, session, settings, endpoints, mqtt, logger){
     var brokerOptions = mqtt.options;
 
-    function get_feed_data(feedid, start, end, interval, skipmissing, limitinterval) {
+    function get_feed_data(feedids, start, end, interval, skipmissing, limitinterval) {
         logger.info("GRAPH: requesting feed data");
         var publish_options = {
             clientId: brokerOptions.clientId,
             action: endpoints.graph,
             data: {
-                id: feedid,
+                ids: feedids,
                 start: start,
                 end: end,
                 interval: interval,
@@ -715,9 +721,13 @@ var GRAPH = (function (session, settings, endpoints, mqtt, logger){
         }
         mqtt.publish(publish_options);
     }
+    function draw() {
+        logger.log('@todo: draw graph before plot')
+    }
     function plot(response) {
-        if (typeof response === 'undefined') return false;
-
+        if (typeof response === 'undefined') {
+            this.get_feed_data()
+        }
         var placeholder = document.getElementById('graph');
         var options = {
             canvas: true,
@@ -734,11 +744,12 @@ var GRAPH = (function (session, settings, endpoints, mqtt, logger){
             selection: { mode: "x" },
             touch: { pan: "x", scale: "x" }
         }
-
+        if(typeof response.result.length === 'undefined') {
+            var message = response.result.success === false ? response.result.message: 'No data For this period';
+            logger.debug(response.request);
+            store.setStatus(message);
+        }
         $.plot(placeholder, [{data:response.result}], options);
-    }
-    function draw(){
-        logger.verbose('GRAPH: draw()');
     }
 
     // public functions
@@ -747,7 +758,7 @@ var GRAPH = (function (session, settings, endpoints, mqtt, logger){
         plot: plot,
         draw: draw
     }
-})(SESSION, SETTINGS, ENDPOINTS, MQTT, logger);
+})(STORE, SESSION, SETTINGS, ENDPOINTS, MQTT, logger);
 // end of graph self executing factory function
 
 // auto connect on load:
@@ -909,8 +920,25 @@ MQTT.connect(feedlistPublishOptions);
             }
         },
         methods: {
-            plot: function(){
-                GRAPH.plot();
+            draw: function(){
+                // draw and plot graph
+                var npoints = 800;
+                var timeWindow = 3600000 * 24; // one hour x 24 = one day
+                var start = new Date() - timeWindow;
+                var end = new Date().getTime();
+                var interval = Math.round(((end - start)/npoints)/1000);
+                var skipmissing = 1;
+                var limitinterval = 1;
+
+                var feedids = [];
+                for (z in this.shared.selectedFeeds) {
+                    let feed = this.shared.selectedFeeds[z];
+                    feedids.push(feed.id); 
+                }
+
+                GRAPH.draw(); // set out the graph
+                // request the data. received data will be plotted
+                GRAPH.getData(feedids.join(','),start,end,interval,skipmissing,limitinterval);
             }
         },
         computed: {
@@ -931,37 +959,22 @@ MQTT.connect(feedlistPublishOptions);
                 } else {
                     return names.join(', ');
                 }
+            },
+            status: function () {
+                return this.shared.status;
             }
         },
         watch: {
             selectedFeeds: {
                 handler(){
                     // if selected feeds un-selected then hide graph
-                    if (this.debug) log(view,'::nodes changed');
-
+                    logger.debug('vm-graph->watcher:selectedFeeds.. selection modified');
                     if (this.shared.view === 'graph') {
                         if(this.shared.selectedFeeds.length <= 0) {
                             // show full list if none selected
                             STORE.setView('list');
                         }else{
-                            // draw and plot graph
-                            var npoints = 800;
-                            var timeWindow = 3600000 * 24; // one hour x 24 = one day
-                            var start = new Date() - timeWindow;
-                            var end = new Date().getTime();
-                            var interval = Math.round(((end - start)/npoints)/1000);
-                            var skipmissing = 1;
-                            var limitinterval = 1;
-
-                            var feedids = [];
-                            for (z in this.shared.selectedFeeds) {
-                                let feed = this.shared.selectedFeeds[z];
-                                feedids.push(feed.id); 
-                            }
-
-                            GRAPH.draw(); // set out the graph
-                            // request the data. received data will be plotted
-                            GRAPH.getData(feedids.join('|'),start,end,interval,skipmissing,limitinterval);
+                            this.draw();
                         }
                     }
                 },
