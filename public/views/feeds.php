@@ -95,12 +95,9 @@
 <div id="feeds-navbar" class="d-flex justify-content-md-between flex-wrap">
     <div id="page-title" class="d-flex align-items-start flex-nowrap">
         <h2 class="mb-1 mr-2 text-nowrap">Feed List</h2>
-        <button id="toggleRefresh" class="btn btn-outline-secondary" data-status="disconnected" onclick="on_off(event)">connect</button>
-    </div>
-    
-    <!-- remove for production -->
-    <div id="dev" class="d-none">
-        <mark>{{ selectedFeeds.length }}/{{ feeds.length }} - {{ this.view }}</mark>
+        <button id="toggleRefresh" class="btn btn-outline-secondary" @click.prevent="on_off">
+            {{buttonTitle}}
+        </button>
     </div>
     
     <nav id="feedlist-buttons" role="toolbar" aria-label="feed buttons"
@@ -161,13 +158,19 @@
     </nav>
 </div>
 
-<p class="d-none d-sm-block">
-    Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.
-</p>
+<div id="instructions">
+    <div class="alert alert-warning mt-3" v-if="status === 'timed out'">
+        <h5 class="alert-heading">Timed out after {{ elapsedTime }} seconds</h5>
+        <p class="mb-0">Ensure that the python script <code>(sub.py)</code> is running on your <em>EmonPi</em> and <a href="#" class="alert-link" @click.prevent="reconnect">re-connect</a>.</p>
+    </div>
+    <p v-if="status !== 'timed out'" class="d-none d-sm-block">
+        <a href="https://emoncms.org">Emoncms</a> is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data. This data is loaded from your local install of EmonCMS.
+    </p>
+</div>
 
 <div class="row split">
     <div id="graph-section" class="col col-slide animate" 
-        :class="{'wide': shared.view == 'graph', 'col-hidden': shared.view === 'list'}"
+        :class="{'wide': view == 'graph', 'col-hidden': view === 'list'}"
     >
         <transition name="fade">
         <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ selectedFeedNames }} </h2>
@@ -330,16 +333,65 @@ var SESSION = <?php echo json_encode($session); ?>;
 // application settings
 var SETTINGS = <?php echo json_encode($settings); ?>;
 
-LOG_LEVEL = 3;
+/* 1 = log
+   2 = info
+   3 = debug
+   4 = verbose
+   5 = full stack trace
+*/
+LOG_LEVEL = 2;
 DEBUG = true;
 Vue.config.productionTip = false
 
-logger = (function(logLevel, isDebug){
-    //labels for console messages
-    //  log, info, debug, verbose
+// IIFE Revealing Module Pattern
+// @see: https://gist.github.com/zcaceres/bb0eec99c02dda6aac0e041d0d4d7bf2
+var UTILITIES = (function () {
+    /**
+    * Object Extending Functionality
+    * Combine all the properties of subsequent arguments
+    * @return <Object> out - plain object with argument objects combined
+    */
+    function mergeObjects(out) {
+        out = out || {};
+        for (var i = 1; i < arguments.length; i++) {
+            if (!arguments[i])
+                continue;
+
+            for (var key in arguments[i]) {
+                if (arguments[i].hasOwnProperty(key))
+                out[key] = arguments[i][key];
+            }
+        }
+        return out;
+    }
+    // return string suitable to be used as an object property name
+    function camelCase(str) {
+        // @todo: not quite "camel case"
+        if(typeof str != 'undefined') return str.toLowerCase().replace(' ','_')
+    }
+    // public methods:
+    return {
+        extend: mergeObjects,
+        camelCase: camelCase
+    };
+})();
+
+/**
+ * labels for console messages
+ * groups and displays messages by type:-
+ *   log, info, debug, verbose
+ * @param <int> logLevel 1 - 5
+ * @param <bool> isDebug switches off the messages when False
+ */
+var LOGGER = (function(logLevel, isDebug){
+    // unicode icons to separate console log messages
     var types = ',🔷,🔶,🔵,🔴'.split(',');
     
-    // ouput to console.log
+    function getErrorObject(){
+        try { throw Error('') } catch(err) { return err; }
+    }
+
+    // ouput to brower console.log
     function print() {
         // if ( ! window.console ) return;
         var args = Array.prototype.slice.call(arguments);
@@ -347,14 +399,18 @@ logger = (function(logLevel, isDebug){
         args.unshift(types[type]);
         var type = type || 1;
 
-        // console.log(arguments);
         if (isDebug) {
             if (logLevel > 0) {
                 if (type <= logLevel) {
+                    if (logLevel === 5) {
+                        console.debug('call stack:', (new Error))
+                    }
                     console.log.apply(null, args);
                 }
             }else{
-                console.log('logging disabled');
+                if(console && console.hasOwnProperty('log')){
+                    console.log('logging disabled');
+                }
             }
         }
     }
@@ -386,10 +442,12 @@ logger = (function(logLevel, isDebug){
     
 })(LOG_LEVEL, DEBUG);
 
-// --------------------------------------
+// end of message logging module
+// ----------------------------------------------------------------------------
 
 // GLOBAL APP STATE for all vue instances
 // includes function to modify the app state values
+// ----------------------------------------------------------------------------
 
 var STORE = {
     debug: true,
@@ -398,19 +456,18 @@ var STORE = {
         feeds: [],
         nodes: {},
         selectedFeeds: [],
-        connected: false,
         view: 'list',
         status: 'ready'
     },
     // edit the shared store's state with internal functions...
     toggleCollapsed: function(tag, state) {
         if (typeof state === 'undefined') state = true;
-        logger.debug('toggleCollapsed() triggered with', tag, state);
+        LOGGER.debug('toggleCollapsed() triggered with', tag, state);
         if (this.state.nodes[tag]) this.state.nodes[tag].collapsed = state;
     },
     toggleFeedSelected: function(feed, state) {
         if (typeof state === 'undefined') state = false;
-        logger.debug('toggleFeedSelected() triggered to', state, feed.id);
+        LOGGER.debug('toggleFeedSelected() triggered to', state, feed.id);
         feed.selected = state;
         this.setSelectedFeeds();
     },
@@ -436,7 +493,7 @@ var STORE = {
         if (typeof newView === 'undefined') return false;
 
         newView = this.state.view === newView ? this.home : newView;
-        logger.verbose('MODE::: toggleView() set to ', newView);
+        LOGGER.verbose('MODE::: toggleView() set to ', newView);
         this.setView(newView);
     },
     // return array of selected feeds for a given tag
@@ -465,11 +522,11 @@ var STORE = {
         return selected;
     },
     setSelectedFeeds: function() {
-        logger.verbose('getSelectedFeeds() triggered');
+        LOGGER.verbose('getSelectedFeeds() triggered');
         this.state.selectedFeeds = this.getSelectedFeeds();
     },
     setNodes: function(){
-        logger.verbose('setNodes() triggered');
+        LOGGER.verbose('setNodes() triggered');
 
         var nodes = {}
         for (key in this.state.feeds) {
@@ -477,7 +534,7 @@ var STORE = {
             if(typeof nodes[feed.tag] === 'undefined') {
                 nodes[feed.tag] = {
                     tag: feed.tag,
-                    id: camelCase(feed.tag)
+                    id: UTILITIES.camelCase(feed.tag)
                 }
             }
             // only create the node if it doesn't already exist
@@ -519,67 +576,99 @@ var STORE = {
         return this.state.nodes;
     },
     setStatus: function(status) {
+        LOGGER.info('setStatus() changed to', status);
         this.state.status = status;
     }
-} // end of STORE
+}
+// end of vue common data and function store
 
+//----------------------------------------------------------------------------------------
 
 // VARIABLES, FUNCTIONS AND INIT
+
 //----------------------------------------------------------------------------------------
 
 // list of api endpoints
 var ENDPOINTS = {
     feedlist: 'feed/list',
     graph: 'feed/data',
-    saveFeed: '/emoncms/feed/set.json',
-    deleteFeed: '/emoncms/feed/delete.json',
+    saveFeed: 'feed/set',
+    deleteFeed: 'feed/delete',
 }
-
-// pause or resume the data download by disconnecting and connecting to broker
-function on_off(event) {
-    event.preventDefault()
-    btn = event.target
-    if (btn.dataset.status == 'connected') {
-        logger.debug('MQTT: publish interval interrupted. #', MQTT.getInterval());
-        MQTT.pause();
-    } else {
-        MQTT.loop(feedlistPublishOptions);
-    }
-}
-
-// return feed engine name based on feed engine id
-function getEngineName(feed) {
-    var engines = {
-        0: 'MYSQL',
-        2: 'PHPTIMESERIES',
-        5: 'PHPFINA',
-        6: 'PHPFIWA',
-        7: 'VIRTUALFEED',   // Virtual feed, on demand post processing
-        8: 'MYSQLMEMORY',   // Mysql with MEMORY tables on RAM. All data is lost on shutdown
-        9: 'REDISBUFFER',   // (internal use only) Redis Read/Write buffer, for low write mode
-        10: 'CASSANDRA'    // Cassandra
-    }
-    return engines[feed.engine]
-}
-
-function camelCase(str) {
-    // @todo: return string suitable to be used as an object property name
-    if(typeof str != 'undefined') return str.toLowerCase().replace(' ','_')
-}
-
 
 // MQTT RELATED FACTORY IIFE
 // (Immediately Invoked Function Expression)
 //----------------------------------------------------------------------------------------
-var MQTT = (function(store, session, settings, logger) {
-    mqttClient = null;
-    // mqtt broker connection settings
+var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, Utils) {
+    var mqttClient = null;
+    // timeout the connection if nothing is returned by broker
+    // probably due to python script not running
+    // @todo: mqtt also has timeout & disconnect features - might be better suited?
+    var timer = {
+        finished: false,
+        interval: null,
+        started: null,
+        ended: null,
+        counter: 0,
+        sleep: 500,
+        timeout: RefreshRate * 2,
+        timeoutCallback: function(){
+            window.clearInterval(publishInterval);
+            publishInterval = null;
+            Store.setStatus('timed out');
+        },
+        timeTaken: function(){
+            if (this.finished) {
+                time = this.ended.getTime() - this.started.getTime(); // return time taken for last request
+            } else {
+                time = new Date().getTime() - this.started.getTime(); // return elapsed time if not finished
+            }
+            return time;
+        },
+        start: function () {
+            this.reset();
+            this.started = new Date();
+            this.interval = window.setInterval(function(){
+                if ((timer.counter * timer.sleep) >= timer.timeout) {
+                    timer.stop(true); // timed out
+                } else if (timer.finished) {
+                    timer.stop(); // finished ok
+                } else {
+                    timer.counter ++; // keep counting
+                }
+            }, this.sleep);
+            Logger.verbose('MQTT: timer started', this.started);
+        },
+        stop: function (timedOut) {
+            this.ended = new Date();
+            this.finished = true;
+            window.clearInterval(this.interval);
+            var message = '';
+            if(timedOut === true) {
+                this.timeoutCallback()
+                message = 'timer timed-out';
+            } else {
+                message = 'timer stopped';
+            }
+            Logger.verbose('MQTT:', message, 'after', this.timeTaken()/1000, 's');
+        },
+        reset: function () {
+            Logger.verbose('MQTT: timer reset');
+            this.finished = false;
+            this.interval = null;
+            this.started = null;
+            this.ended = null;
+            this.counter = 0;
+        }
+    }
+    
+    // mqtt broker connection Settings
     var brokerOptions = {
-        username: session.username,
-        password: session.password,
-        clientId: 'mqttjs_' + session.username + '_' + Math.random().toString(16).substr(2, 8),
-        port: settings.port,
-        host: settings.host
+        username: Session.username,
+        password: Session.password,
+        clientId: 'mqttjs_' + Session.username + '_' + Math.random().toString(16).substr(2, 8),
+        port: Settings.port,
+        host: Settings.host
     }
     // notify broker of disconnection
     brokerOptions.will = {
@@ -597,20 +686,24 @@ var MQTT = (function(store, session, settings, logger) {
 
     // connect to mqtt broker
     // add callback function to run when subscribed topic messages arrive
-    function connectToBroker(options) {
-        logger.debug('MQTT: connect() called with clientId:', options.clientId);
+    // pass mqtt message payload to publish() function
+    function connectToBroker(payload) {
+        Logger.debug('MQTT: connect() called with clientId:', brokerOptions.clientId);
         mqttClient = mqtt.connect(brokerOptions.host, brokerOptions);
 
         mqttClient.on('connect', function (connack) {
-            logger.log('MQTT: connected');
-            logger.verbose('MQTT: on connect event called with', connack);
-            store.state.connected = true;
+            Logger.log('MQTT: on connect callback()');
+            Logger.verbose('MQTT: on connect event called with', connack);
+            Store.setStatus('connected');
+            var topic = "user/" + brokerOptions.username+"/response/" + brokerOptions.clientId;
             mqttClient.subscribe("user/" + brokerOptions.username+"/response/" + brokerOptions.clientId, function (err) {
-                if (!err && typeof options != 'undefined') {
-                    publishToBrokerAtInterval(options);
-                }
+                Logger.verbose('MQTT: subscribed to', topic);
+                publishToBrokerAtInterval(payload);
             })
         })
+
+        // @todo: mqttClient.on('offline', function() { console.log('react to client going offline')})
+        // @todo: mqttClient.on('error', function() { console.log('react to mqtt errors (timeout,disconnect)')})
 
         /**
         * React when stream data is pushed to the client from the broker
@@ -618,70 +711,79 @@ var MQTT = (function(store, session, settings, logger) {
         * @arg Buffer message
         */
         mqttClient.on('message', function(topic, message) {
-            logger.debug('MQTT: received message from topic: ', topic);
+            timer.stop(); // stop the timeout counter
+            Logger.info('Taken', timer.timeTaken() + 'ms','for partner mqtt (sub.py) client to respond')
+            Logger.debug('MQTT: received message from topic: ', topic);
             var response = JSON.parse(message.toString()); // decode stream
-            logger.verbose('MQTT: original request: ', response.request.action);
+            Logger.verbose('MQTT: original request: ', response.request.action);
             var result = response.result;
             switch(response.request.action) {
-                case 'feed/list':
-                    logger.debug('STORE: setNodes()');
-                    store.setFeeds(result);
-                break;
-                case 'feed/data':
-                    logger.debug('GRAPH: plot()');
+                case Endpoints.feedlist:
+                    Logger.debug('STORE: setNodes()');
+                    Store.setFeeds(result);
+                    break;
+                case Endpoints.graph:
+                    Logger.debug('GRAPH: plot()');
                     GRAPH.plot(response);
-                break;
+                    break;
+                case Endpoints.saveFeed:
+                    Logger.info('@todo: respond to feed->set Endpoints call');
+                    Logger.debug('API: feed->set()');
+                    break;
+                case Endpoints.deleteFeed:
+                    Logger.info('@todo: respond to feed->delete Endpoints call');
+                    Logger.debug('API: feed->delete()');
+                    break;
                 default:
-                    logger.debug('MQTT: cannot respond to unrecognized action ', response.request.action);
+                    Logger.debug('MQTT: cannot respond to unrecognized action ', response.request.action);
             }
         });
     }
 
-    // publish request to mqtt broker
-    function publishToBroker(options) {
-        logger.debug('MQTT: publishing to request: ', options);
-        mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(options))
+    // make just the timer.timeTaken() public by returning ref to this function
+    function getElapsedTime() {
+        return timer.timeTaken();
     }
 
     // disconnect from mqtt broker
     function disconnectFromBroker() {
-        logger.debug('MQTT: disconnect() called.');
-        mqttClient.end()
-        // stop the looping of publishing to topic
-        clearInterval(publishInterval);
+        Logger.debug('MQTT: disconnect() called.');
+        interruptPublishInterval();
+        mqttClient.end();
+        Store.setStatus('disconnected');
     }
 
-
-    // start a setInterval at 5s
-    function publishToBrokerAtInterval(options) {
-        logger.verbose('MQTT: publish interval started with', options);
-
-        var btn = document.querySelector('#toggleRefresh');
-        if (btn) {
-            btn.innerText = 'pause updates';
-            btn.dataset.status = 'connected'; 
-        }
-
-        publishToBroker(options);
-        // logger.log('stopped auto reload of data for testing');
-        setPublishInterval(setInterval(function(){
-            publishToBroker(options)
-        }, 5000));
+    // parameters to send as the json object for the mqtt message payload
+    var default_payload_data = {
+        clientId: brokerOptions.clientId,
+        action: ENDPOINTS.feedlist
     }
 
-    function setPublishInterval(interval) {
-        publishInterval = interval;
+    // publish request to mqtt broker
+    function publishToBroker(payload) {
+        timer.start(); // start counting down to react to a timeout on the 
+        payload = Utils.extend(default_payload_data, payload);
+        Logger.debug('MQTT: publishing to request: ', payload);
+        mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(payload))
     }
-    function getPublishInterval(interval) {
-        return publishInterval;
+
+    // start a setInterval at "RefreshRate" (5000 ms)
+    function publishToBrokerAtInterval(payload) {
+        Logger.verbose('MQTT: publish interval started');
+        // if(!timer.finished) timer.start();
+        publishToBroker(payload);
+        // Logger.log('stopped auto reload of data for testing');
+        publishInterval = window.setInterval(function(){
+            publishToBroker(payload)
+        }, RefreshRate);
     }
+
     function interruptPublishInterval() {
-        var interval = getPublishInterval();
-        clearInterval(interval);
-        setPublishInterval(null);
-        var btn = document.getElementById('toggleRefresh');
-        btn.innerText = 'start updates';
-        btn.dataset.status = 'disconnected';
+        Logger.verbose('MQTT: publish interval stopped');
+        window.clearInterval(publishInterval);
+        publishInterval = null;
+        Store.setStatus('paused');
+        timer.stop();
     }
     // expose these functions and variables to the global variable mqtt
     return {
@@ -689,27 +791,28 @@ var MQTT = (function(store, session, settings, logger) {
         publish: publishToBroker,
         connect: connectToBroker,
         client:  mqttClient,
-        getInterval: getPublishInterval,
-        setInterval: setPublishInterval,
-        loop: publishToBrokerAtInterval,
+        start: publishToBrokerAtInterval,
         pause: interruptPublishInterval,
-        options: brokerOptions
+        options: brokerOptions,
+        elapsed: getElapsedTime
     }
-})(STORE, SESSION, SETTINGS, logger);
-// end of MQTT IIFE
-//----------------------------------------------------------------------------------------
+})(STORE, SESSION, SETTINGS, ENDPOINTS, LOGGER, 5000, UTILITIES);
+// end of MQTT (IIFE) Revealing Module 
+//-----------------------------------------------------------------------------
 
 
 // Graph related code
-//----------------------------------------------------------------------------------------
-var GRAPH = (function (store, session, settings, endpoints, mqtt, logger){
-    var brokerOptions = mqtt.options;
-
+//-----------------------------------------------------------------------------
+var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
+    var brokerOptions = Mqtt.options;
+    var placeholder = document.querySelector('#graph');
+    var placeholder_bound = placeholder.parentNode;
+    
     function get_feed_data(feedids, start, end, interval, skipmissing, limitinterval) {
-        logger.info("GRAPH: requesting feed data");
+        Logger.info("GRAPH: requesting feed data");
         var publish_options = {
             clientId: brokerOptions.clientId,
-            action: endpoints.graph,
+            action: Endpoints.graph,
             data: {
                 ids: feedids,
                 start: start,
@@ -719,16 +822,25 @@ var GRAPH = (function (store, session, settings, endpoints, mqtt, logger){
                 limitinterval: limitinterval
             }
         }
-        mqtt.publish(publish_options);
+        Mqtt.publish(publish_options);
     }
     function draw() {
-        logger.log('@todo: draw graph before plot')
+        var width = placeholder_bound.offsetWidth;
+        var height = width * 0.5;
+        var top_offset = 0;
+        placeholder.width = width;
+        placeholder.height = height - top_offset;
+        placeholder_bound.height = height;
     }
     function plot(response) {
-        if (typeof response === 'undefined') {
-            this.get_feed_data()
+        if (typeof response === 'undefined') return false;
+        // return api errors
+        if(typeof response.result.success !== 'undefined') {
+            var message = response.result.success === false ? response.result.message: 'ready';
+            Logger.debug(response.request);
+            Store.setStatus(message);
         }
-        var placeholder = document.getElementById('graph');
+
         var options = {
             canvas: true,
             lines: { fill: true },
@@ -737,19 +849,21 @@ var GRAPH = (function (store, session, settings, endpoints, mqtt, logger){
                 timezone: "browser",
                 min: response.request.data.start,
                 max: response.request.data.end,
-                minTickSize: [response.request.data.interval, "second"]
+                minTickSize: [response.request.data.interval, "second"],
+                color: '#ff0000'
             },
             //yaxis: { min: 0 },
             grid: { hoverable: true, clickable: true },
             selection: { mode: "x" },
             touch: { pan: "x", scale: "x" }
         }
-        if(typeof response.result.length === 'undefined') {
-            var message = response.result.success === false ? response.result.message: 'No data For this period';
-            logger.debug(response.request);
-            store.setStatus(message);
+
+        // loop through results
+        for (index in response.result) {
+            var feed = response.result[index];
+            // plot the data points
+            $.plot(placeholder, [{data:feed.data}], options);
         }
-        $.plot(placeholder, [{data:response.result}], options);
     }
 
     // public functions
@@ -758,22 +872,17 @@ var GRAPH = (function (store, session, settings, endpoints, mqtt, logger){
         plot: plot,
         draw: draw
     }
-})(STORE, SESSION, SETTINGS, ENDPOINTS, MQTT, logger);
-// end of graph self executing factory function
+})(STORE, ENDPOINTS, MQTT, LOGGER);
+// end of GRAPH self executing revealing module (IIFE) function
+// "Immediately Invoked Function Expressions"
 
-// auto connect on load:
-var feedlistPublishOptions = {
-    clientId: MQTT.options.clientId,
-    action: ENDPOINTS.feedlist
-}
+// -------------------------- end of modules ----------------------------------
 
-// INIT
-MQTT.connect(feedlistPublishOptions);
+// -------------------------- INIT --------------------------------------------
+// auto connect on load...
+MQTT.connect();
 
-</script>
-
-<script>
-//----------------------------vue js instances -------------------
+//----------------------------vue js instances --------------------------------
 
     // FEED LIST
     var app = new Vue({
@@ -818,7 +927,17 @@ MQTT.connect(feedlistPublishOptions);
                 return selectedNodeFeeds;
             },
             getEngineName: function(feed) {
-                return getEngineName(feed);
+                var engines = {
+                    0: 'MYSQL',
+                    2: 'PHPTIMESERIES',
+                    5: 'PHPFINA',
+                    6: 'PHPFIWA',
+                    7: 'VIRTUALFEED',   // Virtual feed, on demand post processing
+                    8: 'MYSQLMEMORY',   // Mysql with MEMORY tables on RAM. All data is lost on shutdown
+                    9: 'REDISBUFFER',   // (internal use only) Redis Read/Write buffer, for low write mode
+                    10: 'CASSANDRA'    // Cassandra
+                }
+                return engines[feed.engine]
             },
             setSelectedFeeds: function() {
                 STORE.setSelectedFeeds();
@@ -912,15 +1031,12 @@ MQTT.connect(feedlistPublishOptions);
 
     var app3 = new Vue({
         el: '#graph-section',
-        data: {
-            shared: STORE.state,
-            private: {
-                placeholder: document.getElementById('graph'),
-                placeholder_bound: document.getElementById('graph_bound')
-            }
-        },
+        data: STORE.state,
         methods: {
             draw: function(){
+                GRAPH.draw(); // set out the graph
+            },
+            plot: function(){
                 // draw and plot graph
                 var npoints = 800;
                 var timeWindow = 3600000 * 24; // one hour x 24 = one day
@@ -931,23 +1047,15 @@ MQTT.connect(feedlistPublishOptions);
                 var limitinterval = 1;
 
                 var feedids = [];
-                for (z in this.shared.selectedFeeds) {
-                    let feed = this.shared.selectedFeeds[z];
+                for (z in this.selectedFeeds) {
+                    let feed = this.selectedFeeds[z];
                     feedids.push(feed.id); 
                 }
-
-                GRAPH.draw(); // set out the graph
                 // request the data. received data will be plotted
                 GRAPH.getData(feedids.join(','),start,end,interval,skipmissing,limitinterval);
             }
         },
         computed: {
-            feeds: function(){
-                return this.shared.feeds;
-            },
-            selectedFeeds: function() {
-                return this.shared.selectedFeeds;
-            },
             selectedFeedNames: function(){
                 names = [];
                 for(i in this.selectedFeeds) {
@@ -959,9 +1067,6 @@ MQTT.connect(feedlistPublishOptions);
                 } else {
                     return names.join(', ');
                 }
-            },
-            status: function () {
-                return this.shared.status;
             }
         },
         watch: {
@@ -969,8 +1074,8 @@ MQTT.connect(feedlistPublishOptions);
                 handler(){
                     // if selected feeds un-selected then hide graph
                     logger.debug('vm-graph->watcher:selectedFeeds.. selection modified');
-                    if (this.shared.view === 'graph') {
-                        if(this.shared.selectedFeeds.length <= 0) {
+                    if (this.view === 'graph') {
+                        if(this.selectedFeeds.length <= 0) {
                             // show full list if none selected
                             STORE.setView('list');
                         }else{
@@ -984,20 +1089,55 @@ MQTT.connect(feedlistPublishOptions);
         mounted() {
             var vm = this;
             window.addEventListener('resize', function(){
-                var width = vm.private.placeholder_bound.offsetWidth;
-                var height = width * 0.5;
-                var top_offset = 0;
-                vm.private.placeholder.width = width;
-                vm.private.placeholder_bound.height = height;
-                vm.private.placeholder.height = height - top_offset;
-                vm.plot();
+                vm.draw();
             });
         }
     }); // end of #graph vuejs
 
-    // --------------------------------debug remove for production
-    new Vue({el: "#dev", data: STORE.state})
-
+    var app4 = new Vue({
+        el: '#page-title',
+        data: STORE.state,
+        methods: {
+            connect: function (){
+                MQTT.connect();
+            },
+            on_off: function () {
+                LOGGER.verbose('app4: on_off() triggered');
+                if (this.status == 'connected') {
+                    MQTT.pause();
+                } else {
+                    MQTT.start();
+                }
+            }
+        },
+        computed: {
+            buttonTitle: function(){
+                let statuses = {
+                    ready: 'connect',
+                    connected: 'pause updates',
+                    disconnected: 'connect',
+                    'timed out': 're-connect',
+                    paused: 'start'
+                }
+                return statuses[this.status];
+            }
+        }
+    });
+    
+    var app5 = new Vue({
+        el: '#instructions',
+        data: STORE.state,
+        methods: {
+            reconnect: function (){
+                MQTT.start();
+            }
+        },
+        computed: {
+            elapsedTime: function(){
+                return MQTT.elapsed() / 1000;
+            }
+        }
+    });
 
 </script>
 
@@ -1008,16 +1148,16 @@ MQTT.connect(feedlistPublishOptions);
     $(function(){
         $('#feedslist-section').on('hidden.bs.collapse', '.collapse', function (event) {
             var tag = $(this).data('key');
+            
+            // notify vuejs of dom change
             if(tag) STORE.toggleCollapsed(tag, true)
         })
         $('#feedslist-section').on('shown.bs.collapse', '.collapse', function (event) {
             var tag = $(this).data('key');
+            
+            // notify vuejs of dom change
             if(tag) STORE.toggleCollapsed(tag, false)
         })
-        // setTimeout(function(){
-        //     logger.info('switching off autoreload during debug');
-        //     $('#toggleRefresh').click()
-        // }, 1000);
-    })
+    });
 
 </script>

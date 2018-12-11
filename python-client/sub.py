@@ -143,7 +143,7 @@ def on_connect(client, obj, flags, rc):
 
 
 def on_message(client, obj, msg):
-    """ function called when message is returend from the server 
+    """ function called when message is returned from the server 
 
     Attributes:
         client -- the instance of the mqtt client that received the message
@@ -151,7 +151,7 @@ def on_message(client, obj, msg):
         msg - an instance of MQTTMessage. This is a class with members topic, payload, qos, retain
 
     """
-    logging.debug(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+    logging.debug('onMessage: ' + msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     message = msg.payload.decode("utf-8")
     # NEED TO ENSURE OTHER CLIENTS SET will TO - payload: 'DISCONNECTED CLIENT ' + CLIENT_ID + '--------',
     if(message.startswith('DISCONNECTED')) :
@@ -218,7 +218,7 @@ def call_api(msg):
 
     """
     global mqtt
-    logging.debug("Sending API call")
+
     request = json.loads(msg)
     # merge the default settings with ones passed in the mqtt topic
     data = merge_two_dicts(emoncms, request)
@@ -227,6 +227,7 @@ def call_api(msg):
         params = merge_two_dicts(data["parameters"], request["data"])
     else:
         params = data["parameters"]
+
     url_params = '?' + urllib.urlencode(params)
     url = "%s%s:%s%s.json%s" % (data["protocol"], data["host"], data["port"], path, url_params)
     logging.debug("Sending API request %s" % url)
