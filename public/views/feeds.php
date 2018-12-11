@@ -339,7 +339,7 @@ var SETTINGS = <?php echo json_encode($settings); ?>;
    4 = verbose
    5 = full stack trace
 */
-LOG_LEVEL = 2;
+LOG_LEVEL = 4;
 DEBUG = true;
 Vue.config.productionTip = false
 
@@ -618,10 +618,12 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
             Store.setStatus('timed out');
         },
         timeTaken: function(){
-            if (this.finished) {
+            if (this.started && this.finished) {
                 time = this.ended.getTime() - this.started.getTime(); // return time taken for last request
-            } else {
+            } else if(this.started) {
                 time = new Date().getTime() - this.started.getTime(); // return elapsed time if not finished
+            } else {
+                time = 0;
             }
             return time;
         },
@@ -692,6 +694,7 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
         mqttClient = mqtt.connect(brokerOptions.host, brokerOptions);
 
         mqttClient.on('connect', function (connack) {
+            timer.start();
             Logger.log('MQTT: on connect callback()');
             Logger.verbose('MQTT: on connect event called with', connack);
             Store.setStatus('connected');
@@ -761,16 +764,22 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
 
     // publish request to mqtt broker
     function publishToBroker(payload) {
-        timer.start(); // start counting down to react to a timeout on the 
+        if(timer.finished === true) {
+            // start counting down and react to a timeout
+            timer.start();
+        }
+
         payload = Utils.extend(default_payload_data, payload);
         Logger.debug('MQTT: publishing to request: ', payload);
+        Store.setStatus('connected')
+
         mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(payload))
     }
 
     // start a setInterval at "RefreshRate" (5000 ms)
     function publishToBrokerAtInterval(payload) {
         Logger.verbose('MQTT: publish interval started');
-        // if(!timer.finished) timer.start();
+        
         publishToBroker(payload);
         // Logger.log('stopped auto reload of data for testing');
         publishInterval = window.setInterval(function(){
