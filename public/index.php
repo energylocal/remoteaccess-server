@@ -15,6 +15,15 @@ if (file_exists( $settings_dir . "settings.dev.php")) {
     include $settings_dir . "settings.dev.php";
 }
 $settings = isset($settings) ? $settings : array();
+
+$mysqli = new mysqli(
+    $mysql_settings["host"],
+    $mysql_settings["user"],
+    $mysql_settings["password"],
+    $mysql_settings["database"],
+    $mysql_settings["port"]
+);
+
 // Basic session
 session_start();
 $session = array("valid"=>false, "username"=>false,"password"=>false);
@@ -98,9 +107,45 @@ switch ($q)
             // TODO: check that user exists in MQTT server database here...
 
             if (isset($content->success) && $content->success) {
-                session_regenerate_id();
-                $_SESSION['username'] = $username;
-                $_SESSION['password'] = $password;
+            
+                if (!$stmt = $mysqli->prepare("SELECT username FROM users WHERE username=?")) {
+                    $content = array('success'=>false, 'message'=>"Database error");
+                }
+                $stmt->bind_param("s",$username);
+                $stmt->execute();
+                $stmt->bind_result($userData_username);
+                $result = $stmt->fetch();
+                $stmt->close();
+                
+                
+                $valid = false;
+                if (!$result) {
+                    // ---------------------------------------------------------------------------------
+                    // Register user on mqtt server
+                    // ---------------------------------------------------------------------------------
+                    include "lib/mqtt_hash.php";
+                    $mqtthash = create_hash($password);
+                    
+                    $stmt = $mysqli->prepare("INSERT INTO users ( username, pw, super) VALUES (?,?,0)");
+                    $stmt->bind_param("ss", $username, $mqtthash);
+                    $result = $stmt->execute();
+                    $stmt->close();
+                    
+                    if ($result) {
+                        $topic = "user/$username/#";
+                        $stmt = $mysqli->prepare("INSERT INTO acls (username,topic,rw) VALUES (?,?,2)");
+                        $stmt->bind_param("ss", $username, $topic);
+                        $result = $stmt->execute();
+                        $stmt->close();
+                        if ($result) $valid = true;
+                    }
+                } else $valid = true;
+                
+                if ($valid) {
+                    session_regenerate_id();
+                    $_SESSION['username'] = $username;
+                    $_SESSION['password'] = $password;
+                }
             }
         }
 	// header("Access-Control-Allow-Origin: *");
