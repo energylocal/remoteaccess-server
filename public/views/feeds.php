@@ -329,7 +329,7 @@ var SETTINGS = <?php echo json_encode($settings); ?>;
    4 = verbose
    5 = full stack trace
 */
-LOG_LEVEL = 2;
+LOG_LEVEL = 3;
 DEBUG = true;
 Vue.config.productionTip = false
 

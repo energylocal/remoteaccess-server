@@ -70,6 +70,15 @@ switch ($q)
         }
         break;
 
+    case "graph":
+        $format = "themedhtml";
+        if ($session["valid"]) {
+            $content = view("views/graph.php",array("session"=>$session));
+        } else {
+            $content = view("views/login_view.php",array());
+        }
+        break;
+        
     // json api route
     case "auth":
         $format = "json";
@@ -94,6 +103,7 @@ switch ($q)
                 $_SESSION['password'] = $password;
             }
         }
+	// header("Access-Control-Allow-Origin: *");
         break;
 
     case "logout":
