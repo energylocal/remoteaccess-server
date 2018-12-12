@@ -170,14 +170,14 @@
 
 <div class="row split">
     <section id="graph-section" class="col col-slide animate" 
-        :class="{'wide': view == 'graph', 'col-hidden': view === 'list'}"
+        :class="{'wide': shared.view == 'graph', 'col-hidden': shared.view === 'list'}"
     >
         <transition name="fade">
-        <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ selectedFeedNames }} </h2>
+        <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ shared.selectedFeedNames }} </h2>
         </transition>
-        <h4 v-if="status === 'error'"> {{error}} </h4>
-        <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
-            <div id="graph" class="h-100 w-100 bg-light"></div>
+        <h4 v-if="shared.status === 'error'"> {{ shared.error }} </h4>
+        <div id="graph_bound" :style="{'height':local.height+'px'}" style="width:100%; position:relative; ">
+            <div id="graph" class="h-100 w-100 bg-light" :style="{height: (local.height - local.top_offset) + 'px', width: local.width + 'px'}"></div>
             <div id="graph-buttons" style="position:absolute; top:18px; right:32px; opacity:0.5;">
                 <div class='btn-group'>
                     <button class='btn graph-time' type='button' time='1'>D</button>
@@ -328,7 +328,7 @@ var SETTINGS = <?php echo json_encode($settings); ?>;
    4 = verbose
    5 = full stack trace
 */
-LOG_LEVEL = 3;
+LOG_LEVEL = 2;
 DEBUG = true;
 Vue.config.productionTip = false
 
@@ -440,7 +440,7 @@ var LOGGER = (function(logLevel, isDebug){
 
 var STORE = {
     debug: true,
-    home: 'list',
+    home: 'list', //first view to load
     state: {
         feeds: [],
         nodes: {},
@@ -566,12 +566,17 @@ var STORE = {
         return this.state.nodes;
     },
     setStatus: function(status) {
-        LOGGER.log('setStatus() changed to', status);
-        this.state.status = status;
+        if (status !== this.state.status) {
+            LOGGER.log('------------setStatus() changed to', status,'---------------');
+            this.state.status = status;
+        } else {
+            LOGGER.verbose('STORE: setStatus() did not change status. Was already set to', status);
+        }
     },
     setError: function(msg) {
         this.setStatus('error');
         this.state.error = msg;
+        LOGGER.verbose('STORE: setError() triggered with', msg);
     }
 }
 // end of vue common data and function store
@@ -709,10 +714,9 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
         */
         mqttClient.on('message', function(topic, message) {
             timer.stop(); // stop the timeout counter
-            Logger.debug('Taken', timer.timeTaken() + 'ms','for partner mqtt (sub.py) client to respond')
-            Logger.debug('MQTT: received message from topic: ', topic);
             var response = JSON.parse(message.toString()); // decode stream
-            Logger.verbose('MQTT: original request: ', response.request.action);
+            Logger.info('MQTT: received message for: ', response.request.action);
+            Logger.debug('Taken', timer.timeTaken() + 'ms','for partner mqtt (sub.py) client to respond with', response.request.action)
             var result = response.result;
             switch(response.request.action) {
                 case Endpoints.feedlist:
@@ -720,7 +724,6 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
                     Store.setFeeds(result);
                     break;
                 case Endpoints.graph:
-                    Logger.debug('GRAPH: plot()');
                     GRAPH.plot(response);
                     break;
                 case Endpoints.saveFeed:
@@ -746,7 +749,11 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
     function disconnectFromBroker() {
         Logger.debug('MQTT: disconnect() called.');
         interruptPublishInterval();
-        mqttClient.end();
+        try {
+            mqttClient.end();
+        } catch (e) {
+            console.error('Problem sending disconnect packet to broker.')
+        }
         Store.setStatus('disconnected');
     }
 
@@ -757,13 +764,13 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
     }
 
     // publish request to mqtt broker
-    function publishToBroker(payload) {
+    function publishToBroker(input_payload) {
         if(timer.finished === true) {
             // start counting down and react to a timeout
             timer.start();
         }
-
-        payload = Utils.extend(default_payload_data, payload);
+        // use default values if not passed
+        var payload = Utils.extend({}, default_payload_data, input_payload);
         Logger.debug('MQTT: publishing to request: ', payload);
         Store.setStatus('published')
 
@@ -773,7 +780,6 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
     // start a setInterval at "RefreshRate" (5000 ms)
     function publishToBrokerAtInterval(payload) {
         Logger.verbose('MQTT: publish interval started');
-        
         publishToBroker(payload);
         // Logger.log('stopped auto reload of data for testing');
         publishInterval = window.setInterval(function(){
@@ -808,9 +814,8 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
 //-----------------------------------------------------------------------------
 var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
     var brokerOptions = Mqtt.options;
-    var placeholder = document.querySelector('#graph');
-    var placeholder_bound = placeholder.parentNode;
     
+    // publish request to mqtt broker
     function get_feed_data(feedids, start, end, interval, skipmissing, limitinterval) {
         Logger.info("GRAPH: requesting feed data");
         var publish_options = {
@@ -827,24 +832,38 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
         }
         Mqtt.publish(publish_options);
     }
-    function draw() {
-        Logger.debug("GRAPH: draw() triggered");
-        var width = placeholder_bound.offsetWidth;
-        var height = width * 0.5;
-        var top_offset = 0;
-        placeholder.width = width;
-        placeholder.height = height - top_offset;
-        placeholder_bound.height = height;
+     // request data points in range
+    function draw(feedids, start, end, interval, skipmissing, limitinterval) {
+        Logger.debug("GRAPH: draw() requesting data");
+        if (arguments.length === 0) {
+            var npoints = 800;
+            var timeWindow = 3600000 * 24; // one hour x 24 = one day
+            start = new Date() - timeWindow;
+            end = new Date().getTime();
+            interval = Math.round(((end - start)/npoints)/1000);
+            skipmissing = 1;
+            limitinterval = 1;
+            
+            var feedidsList = [];
+            for (z in Store.selectedFeeds) {
+                let feed = Store.selectedFeeds[z];
+                feedidsList.push(feed.id); 
+            }
+            feedids = feedidsList.join(',');
+        }
+        // request the data. received data will be plotted
+        get_feed_data(feedids,start,end,interval,skipmissing,limitinterval);
     }
+    // place data points 
     function plot(response) {
         Logger.debug("GRAPH: plot() triggered with", response);
-
         if (typeof response === 'undefined') return false;
+
         // return api errors
-        if(typeof response.result.success !== 'undefined') {
+        if (typeof response.result.success !== 'undefined') {
             var message = response.result.success === false ? response.result.message: 'ready';
             Logger.debug(response.request);
-            Store.setError(msg);
+            Store.setError(response.result.message);
         }
 
         var options = {
@@ -855,8 +874,7 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
                 timezone: "browser",
                 min: response.request.data.start,
                 max: response.request.data.end,
-                minTickSize: [response.request.data.interval, "second"],
-                color: '#ff0000'
+                minTickSize: [response.request.data.interval, "second"]
             },
             //yaxis: { min: 0 },
             grid: { hoverable: true, clickable: true },
@@ -865,16 +883,19 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
         }
 
         // loop through results
+        var data = [];
         for (index in response.result) {
-            var feed = response.result[index];
             // plot the data points
-            $.plot(placeholder, [{data:feed.data}], options);
+            var feed = response.result[index];
+            data.push({data: feed.data});
         }
+        var placeholder = document.querySelector('#graph');
+        $.plot(placeholder, data, options);
+        Logger.info('jQuery plot() function called', data);
     }
 
     // public functions
     return {
-        getData: get_feed_data,
         plot: plot,
         draw: draw
     }
@@ -1037,13 +1058,37 @@ MQTT.connect();
 
     var app3 = new Vue({
         el: '#graph-section',
-        data: STORE.state,
+        data: {
+            shared: STORE.state,
+            local: {
+                placeholder: document.querySelector('#graph'),
+                width: 0,
+                height: 0,
+                top_offset: 0,
+                timeout: null
+            }
+        },
         methods: {
-            draw: function(){
-                GRAPH.draw(); // set out the graph
-                this.plot(); //
+            layout: function(){
+                if(this.shared.view === 'graph') {
+                    LOGGER.debug("GRAPH: layout() resizeing graph container");
+                    var placeholder_bound = this.local.placeholder.parentNode;
+                    this.local.width = placeholder_bound.offsetWidth;
+                    this.local.height = this.local.width * 0.5;
+
+                    // wait for animation to complete
+                    if(!this.local.timeout){
+                        var vm = this;
+                        this.local.timeout = setTimeout(function(){
+                            vm.layout();
+                            vm.local.timeout = null
+                        },1000)
+                    } else {
+                        this.draw();
+                    }
+                }
             },
-            plot: function(){
+            draw: function(){
                 // draw and plot graph
                 var npoints = 800;
                 var timeWindow = 3600000 * 24; // one hour x 24 = one day
@@ -1053,13 +1098,14 @@ MQTT.connect();
                 var skipmissing = 1;
                 var limitinterval = 1;
 
-                var feedids = [];
+                var feedidsList = [];
                 for (z in this.selectedFeeds) {
                     let feed = this.selectedFeeds[z];
-                    feedids.push(feed.id); 
+                    feedidsList.push(feed.id); 
                 }
                 // request the data. received data will be plotted
-                GRAPH.getData(feedids.join(','),start,end,interval,skipmissing,limitinterval);
+                var feedids = feedidsList.join(',');
+                GRAPH.draw(feedids, start, end, interval, skipmissing, limitinterval)
             }
         },
         computed: {
@@ -1077,12 +1123,12 @@ MQTT.connect();
             }
         },
         watch: {
-            selectedFeeds: {
-                handler(){
+            'shared.selectedFeeds': {
+                handler: function(){
                     // if selected feeds un-selected then hide graph
                     LOGGER.debug('vm-graph->watcher:selectedFeeds.. selection modified');
-                    if (this.view === 'graph') {
-                        if(this.selectedFeeds.length <= 0) {
+                    if (this.shared.view === 'graph') {
+                        if(this.shared.selectedFeeds.length <= 0) {
                             // show full list if none selected
                             STORE.setView('list');
                         }else{
@@ -1091,13 +1137,29 @@ MQTT.connect();
                     }
                 },
                 deep: true
+            }, 
+            'shared.view': function(newVal, oldVal) {
+                if (newVal === 'graph') {
+                    this.layout();
+                }
             }
         },
         mounted() {
+            // RESIZE THE GRAPH ON WINDOW RESIZE
+            // ref to the vue instance
             var vm = this;
-            window.addEventListener('resize', function(){
-                vm.draw();
-            });
+            // Setup a timer
+            var resizeTimeout;
+            // Listen for resize events (debounce)
+            window.addEventListener('resize', function ( event ) {
+                if ( !resizeTimeout ) {
+                    resizeTimeout = setTimeout(function() {
+                        resizeTimeout = null;
+                        console.info( 'emrys resize','debounced' );
+                        vm.layout();
+                    }, 250);
+                }
+            }, false);
         }
     }); // end of #graph vuejs
 
