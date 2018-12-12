@@ -25,3 +25,22 @@ View service log:
     journalctl -f -u remoteaccess -n 100
 
 Create .env settings file with emoncms.org username and password.
+
+    cp .env.example .env
+    nano .env
+
+Enter your local emoncms apikey and remote emoncms.org account username and password to connect:
+
+    # application mode
+    APP_ENV='production'
+    # emoncms api write key
+    EMONCMS_APIKEY='apikey'
+    # mqtt broker connection
+    MQTT_HOST='mqtt.emoncms.org'
+    MQTT_USERNAME='username'
+    MQTT_PASSWORD='password'
+    MQTT_PORT=8883
+    MQTT_TLS=true
+
+    # Save As .env for production
+    # Save As .env.dev for development
