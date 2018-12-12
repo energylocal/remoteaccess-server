@@ -169,13 +169,13 @@
 </div>
 
 <div class="row split">
-    <div id="graph-section" class="col col-slide animate" 
+    <section id="graph-section" class="col col-slide animate" 
         :class="{'wide': view == 'graph', 'col-hidden': view === 'list'}"
     >
         <transition name="fade">
         <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ selectedFeedNames }} </h2>
         </transition>
-        <h4 v-if="status !== 'ready'"> {{status}} </h4>
+        <h4 v-if="status === 'error'"> {{error}} </h4>
         <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
             <div id="graph" class="h-100 w-100 bg-light"></div>
             <div id="graph-buttons" style="position:absolute; top:18px; right:32px; opacity:0.5;">
@@ -194,22 +194,12 @@
                 </div>
             </div>
         </div>
-    </div><!-- /#graph -->
+
+    </section><!-- /#graph-section -->
 
 
 
-    <div id="feedslist-section" class="col animate" :class="{'col-4': view === 'graph'}">
-
-<!--
-    slected feeds: {{selectedFeeds.length}}
-    <ul v-for="node in nodes">
-        <li v-for="feed in node.feeds" @click="feed.selected = !feed.selected;" :class="{'bg-primary':feed.selected}">
-            {{feed.name}} {{feed.selected}}
-        </li>
-    </ul>
--->
-
-
+    <section id="feedslist-section" class="col animate" :class="{'col-4': view === 'graph'}">
 
         <div v-if="nodes.length == 0" id="loading" class="alert alert-warning">
             <strong>Loading:</strong> Remote feed list, please wait 5 seconds&hellip;
@@ -306,7 +296,7 @@
                                     <div class="col text-right text-truncate pr-2">
                                         {{list_format_value(feed.value)}} {{feed.unit}}
                                     </div>
-                                <div class="col col-6 col-md-5 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
+                                    <div class="col col-6 col-md-5 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
                                 </div>
                             </div>
                         </div>
@@ -314,8 +304,7 @@
                 </ul>
             </div><!-- /.collapse -->
         </div><!-- /.card -->
-    </div><!-- /#feeds -->
-
+    </section><!-- /#feeds-section -->
 </div><!-- /.row -->
 
 <script src="js/jquery-1.11.3.min.js"></script>
@@ -339,7 +328,7 @@ var SETTINGS = <?php echo json_encode($settings); ?>;
    4 = verbose
    5 = full stack trace
 */
-LOG_LEVEL = 4;
+LOG_LEVEL = 3;
 DEBUG = true;
 Vue.config.productionTip = false
 
@@ -457,7 +446,8 @@ var STORE = {
         nodes: {},
         selectedFeeds: [],
         view: 'list',
-        status: 'ready'
+        status: 'ready',
+        error: ''
     },
     // edit the shared store's state with internal functions...
     toggleCollapsed: function(tag, state) {
@@ -576,8 +566,12 @@ var STORE = {
         return this.state.nodes;
     },
     setStatus: function(status) {
-        LOGGER.info('setStatus() changed to', status);
+        LOGGER.log('setStatus() changed to', status);
         this.state.status = status;
+    },
+    setError: function(msg) {
+        this.setStatus('error');
+        this.state.error = msg;
     }
 }
 // end of vue common data and function store
@@ -715,7 +709,7 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
         */
         mqttClient.on('message', function(topic, message) {
             timer.stop(); // stop the timeout counter
-            Logger.info('Taken', timer.timeTaken() + 'ms','for partner mqtt (sub.py) client to respond')
+            Logger.debug('Taken', timer.timeTaken() + 'ms','for partner mqtt (sub.py) client to respond')
             Logger.debug('MQTT: received message from topic: ', topic);
             var response = JSON.parse(message.toString()); // decode stream
             Logger.verbose('MQTT: original request: ', response.request.action);
@@ -771,7 +765,7 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
 
         payload = Utils.extend(default_payload_data, payload);
         Logger.debug('MQTT: publishing to request: ', payload);
-        Store.setStatus('connected')
+        Store.setStatus('published')
 
         mqttClient.publish("user/" + brokerOptions.username + "/request", JSON.stringify(payload))
     }
@@ -834,6 +828,7 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
         Mqtt.publish(publish_options);
     }
     function draw() {
+        Logger.debug("GRAPH: draw() triggered");
         var width = placeholder_bound.offsetWidth;
         var height = width * 0.5;
         var top_offset = 0;
@@ -842,12 +837,14 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
         placeholder_bound.height = height;
     }
     function plot(response) {
+        Logger.debug("GRAPH: plot() triggered with", response);
+
         if (typeof response === 'undefined') return false;
         // return api errors
         if(typeof response.result.success !== 'undefined') {
             var message = response.result.success === false ? response.result.message: 'ready';
             Logger.debug(response.request);
-            Store.setStatus(message);
+            Store.setError(msg);
         }
 
         var options = {
@@ -905,7 +902,7 @@ MQTT.connect();
                 return list_format_value(value);
             },
             toggleSelected: function(event, feed) {
-                logger.verbose('vm->list:toggleSelected() triggered with',event.type,feed.id);
+                LOGGER.verbose('vm->list:toggleSelected() triggered with',event.type,feed.id);
 
                 if (event.type === 'click'){
                     // if event not triggered by click (not change or input)
@@ -1016,22 +1013,22 @@ MQTT.connect();
                 }
             },
             editFeeds: function(event) {
-                logger.verbose('vm=>btns: edit() triggered with', event);
+                LOGGER.verbose('vm=>btns: edit() triggered with', event);
                 STORE.toggleView('edit');
                 // @todo
             },
             deleteFeeds: function(event) {
-                logger.verbose('vm=>btns: delete() triggered with', event);
+                LOGGER.verbose('vm=>btns: delete() triggered with', event);
                 STORE.toggleView('delete');
                 // @todo
             },
             downloadFeeds: function(event) {
-                logger.verbose('vm=>btns: download() triggered with', event);
+                LOGGER.verbose('vm=>btns: download() triggered with', event);
                 STORE.toggleView('download');
                 // @todo
             },
             graphFeeds: function(event) {
-                logger.verbose('vm=>btns: view() graphFeeds() triggered with', event.type);
+                LOGGER.verbose('vm=>btns: view() graphFeeds() triggered with', event.type);
                 STORE.setSelectedFeeds();
                 STORE.toggleView('graph');
             }
@@ -1044,6 +1041,7 @@ MQTT.connect();
         methods: {
             draw: function(){
                 GRAPH.draw(); // set out the graph
+                this.plot(); //
             },
             plot: function(){
                 // draw and plot graph
@@ -1082,7 +1080,7 @@ MQTT.connect();
             selectedFeeds: {
                 handler(){
                     // if selected feeds un-selected then hide graph
-                    logger.debug('vm-graph->watcher:selectedFeeds.. selection modified');
+                    LOGGER.debug('vm-graph->watcher:selectedFeeds.. selection modified');
                     if (this.view === 'graph') {
                         if(this.selectedFeeds.length <= 0) {
                             // show full list if none selected
@@ -1112,7 +1110,7 @@ MQTT.connect();
             },
             on_off: function () {
                 LOGGER.verbose('app4: on_off() triggered');
-                if (this.status == 'connected') {
+                if ('connected,published'.split(',').indexOf(this.status) > -1) {
                     MQTT.pause();
                 } else {
                     MQTT.start();
@@ -1124,9 +1122,11 @@ MQTT.connect();
                 let statuses = {
                     ready: 'connect',
                     connected: 'pause updates',
+                    published: 'pause updates',
                     disconnected: 'connect',
                     'timed out': 're-connect',
-                    paused: 'start'
+                    error: 'error',
+                    paused: 'connect'
                 }
                 return statuses[this.status];
             }
