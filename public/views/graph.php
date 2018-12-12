@@ -184,8 +184,8 @@ $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw(
 
     client.on('message', function (topic, message) {
         // message
-        console.log("response received", message.toString());
-        data = JSON.parse(message.toString());
+        var response = JSON.parse(message.toString());
+        data = response.result;
         plot();
     })
 

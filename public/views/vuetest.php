@@ -74,7 +74,8 @@ client.on('connect', function () {
 client.on('message', function (topic, message) {
     // message is Buffer
     console.log("response received");
-    feeds = JSON.parse(message.toString());
+    var response = JSON.parse(message.toString());
+    feeds = response.result;
     app.feeds = feeds;
 })
 
@@ -82,7 +83,7 @@ function publish() {
     console.log("mqtt: requesting feed list");
     var publish_options = {
         clientId: options.clientId,
-        path: "/emoncms/feed/list.json"
+        action: "feed/list"
     }
     client.publish("user/"+options.username+"/request", JSON.stringify(publish_options))
 }
