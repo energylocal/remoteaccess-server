@@ -38,7 +38,7 @@
 ###
 
 [Unit]
-Description=Emoncms MQTT Input Script
+Description=Emoncms RemoteAccess script
 Wants=mosquitto.service mysql.service redis.service
 After=mosquitto.service mysql.service redis.service
 Documentation=https://github.com/emoncms/remoteaccess.git
