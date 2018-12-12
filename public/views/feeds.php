@@ -176,8 +176,8 @@
         <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ shared.selectedFeedNames }} </h2>
         </transition>
         <h4 v-if="shared.status === 'error'"> {{ shared.error }} </h4>
-        <div id="graph_bound" :style="{'height':local.height+'px'}" style="width:100%; position:relative; ">
-            <div id="graph" class="h-100 w-100 bg-light" :style="{height: (local.height - local.top_offset) + 'px', width: local.width + 'px'}"></div>
+        <div id="graph_bound" style="width:400px; height: 400px; position:relative; ">
+            <div id="graph" class="bg-light" style="width:400px; height: 400px"></div>
             <div id="graph-buttons" style="position:absolute; top:18px; right:32px; opacity:0.5;">
                 <div class='btn-group'>
                     <button class='btn graph-time' type='button' time='1'>D</button>
@@ -196,6 +196,7 @@
         </div>
 
     </section><!-- /#graph-section -->
+    
 
 
 
@@ -887,8 +888,9 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
         for (index in response.result) {
             // plot the data points
             var feed = response.result[index];
-            data.push({data: feed.data});
+            data.push({data: feed.data, label: 'index ' + index});
         }
+        
         var placeholder = document.querySelector('#graph');
         $.plot(placeholder, data, options);
         Logger.info('jQuery plot() function called', data);
@@ -1099,12 +1101,14 @@ MQTT.connect();
                 var limitinterval = 1;
 
                 var feedidsList = [];
-                for (z in this.selectedFeeds) {
-                    let feed = this.selectedFeeds[z];
+                for (z in this.shared.selectedFeeds) {
+                    let feed = this.shared.selectedFeeds[z];
                     feedidsList.push(feed.id); 
                 }
                 // request the data. received data will be plotted
                 var feedids = feedidsList.join(',');
+
+                console.log('def', feedids);
                 GRAPH.draw(feedids, start, end, interval, skipmissing, limitinterval)
             }
         },
