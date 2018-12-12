@@ -1,4 +1,6 @@
-# Emoncms Remote Access
+# Emoncms Remote Access (Alpha)
+
+This concept is still work in progress. Expect buggy results for now.
 
 Background discussion: [https://community.openenergymonitor.org/t/emoncms-local-vs-remote/7268](https://community.openenergymonitor.org/t/emoncms-local-vs-remote/7268)
 
