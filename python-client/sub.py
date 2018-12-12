@@ -6,20 +6,32 @@ import time
 import ssl
 import requests as requests
 import paho.mqtt.client as paho
+import os
+import urllib
+from os import path, getenv
+from dotenv import load_dotenv
+
+_dir = path.dirname(path.dirname(path.abspath(__file__)))
+# Load file from the path.
+dotenv_path = path.join(_dir, '.env')
+# Load local dev version if exists
+if path.isfile(path.join(_dir, '.env.dev')) :
+    dotenv_path = path.join(_dir, '.env.dev')
+
+load_dotenv(dotenv_path)
 
 #-----------------------------------------------------------
 #-      SETTINGS
 #-----------------------------------------------------------
 
-username = "emrys" # mqtt authentication
-password = "" # mqtt authentication
-apikey = "" # local emoncms api key
-port = 8883
+host = getenv('MQTT_HOST')
+username = getenv('MQTT_USERNAME')
+password = getenv('MQTT_PASSWORD')
+apikey = getenv('EMONCMS_APIKEY')
+port = int(getenv('MQTT_PORT'))
+tls = getenv('MQTT_TLS').lower() == 'true'
 
 #-----------------------------------------------------------
-
-
-
 
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
@@ -27,7 +39,7 @@ logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 #mqtt production settings
 client_id = "%s_python" % username
 mqtt = {
-    "host" : "mqtt.emoncms.org",
+    "host" : host,
     "username" : username,
     "password" : password,
     "port" : port,
@@ -37,21 +49,7 @@ mqtt = {
     "delay" : 2,
     "counter" : 0,
     "client" : None,
-    "tls" : True,
-    "clientId" : client_id
-}
-mqtt = {
-    "host" : "localhost",
-    "username" : '',
-    "password" : '',
-    "port" : 1883,
-    "pubTopic" : "user/%s/response/" % username,
-    "subTopic" : "user/%s/request" % username,
-    "retry" : 5,
-    "delay" : 2,
-    "counter" : 0,
-    "client" : None,
-    "tls" : False,
+    "tls" : tls,
     "clientId" : client_id
 }
 
@@ -61,8 +59,9 @@ emoncms = {
     "host" : "localhost",
     "port" : "80",
     "path" : "/emoncms/feed/list.json",
-    "parameters" : "?",
-    "apikey" : apikey
+    "parameters" : {
+        "apikey" : apikey
+    }
 }
 logging.debug("Settings: %s, %s, %s, %s. TLS:%s", mqtt["clientId"], mqtt["host"], mqtt["pubTopic"], mqtt["subTopic"], mqtt["tls"])
 
@@ -144,7 +143,7 @@ def on_connect(client, obj, flags, rc):
 
 
 def on_message(client, obj, msg):
-    """ function called when message is returend from the server 
+    """ function called when message is returned from the server 
 
     Attributes:
         client -- the instance of the mqtt client that received the message
@@ -152,7 +151,7 @@ def on_message(client, obj, msg):
         msg - an instance of MQTTMessage. This is a class with members topic, payload, qos, retain
 
     """
-    logging.debug(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+    logging.debug('onMessage: ' + msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     message = msg.payload.decode("utf-8")
     # NEED TO ENSURE OTHER CLIENTS SET will TO - payload: 'DISCONNECTED CLIENT ' + CLIENT_ID + '--------',
     if(message.startswith('DISCONNECTED')) :
@@ -219,28 +218,46 @@ def call_api(msg):
 
     """
     global mqtt
-    logging.debug("Sending API call")
-    json_data = json.loads(msg)
+
+    request = json.loads(msg)
     # merge the default settings with ones passed in the mqtt topic
-    data = merge_two_dicts(emoncms, json_data)
+    data = merge_two_dicts(emoncms, request)
+    path = "/emoncms/" + data["action"]
+    if 'data' in request:
+        params = merge_two_dicts(data["parameters"], request["data"])
+    else:
+        params = data["parameters"]
 
-    uri = "%s%s:%s%s%s&apikey=%s" % (data["protocol"], data["host"], data["port"], data["path"], data["parameters"], data["apikey"])
-    logging.debug("Sending API request %s" % uri)
-    send_response(requests.get(uri), data["clientId"])
+    url_params = '?' + urllib.urlencode(params)
+    url = "%s%s:%s%s.json%s" % (data["protocol"], data["host"], data["port"], path, url_params)
+    logging.debug("Sending API request %s" % url)
+    response = requests.get(url)
+    send_response(request, response)
 
 
-def send_response(response, remote_client_id):
+def send_response(request, response):
     """ Forward the API call response (JSON) to another 
-    MQTT topic the opposite client is subscibed to
+    MQTT topic the requesting client is subscibed to.
+
+    @todo: Also wraps the api response in a data property and includes the original
+    request message in the response.
 
     Attributes
         response -- json payload for the mqtt message
 
     """
     global mqtt
+    remote_client_id = request["clientId"]
     logging.debug("Sending API response to: \"%s%s\"" % (mqtt["pubTopic"], remote_client_id))
+
+    json_response = {
+        "request": request,
+        "result": response.json()
+    }
+    # publish to topic
     pub_response = mqtt["client"].publish(
-        mqtt["pubTopic"]+remote_client_id, json.dumps(response.json()))  # publish
+        mqtt["pubTopic"] + remote_client_id, json.dumps(json_response)
+    )
 
     logging.debug("PUBLISHED: %s", paho.error_string(pub_response.rc))
     # pub_response.wait_for_publish()
@@ -251,29 +268,8 @@ def setTLS(tls_version=None):
 
     """
     global mqtt
-    if not hasattr(ssl, 'SSLContext'):
-        # Require Python version that has SSL context support in standard library
-        raise ValueError('Python 2.7.9 and 3.2 are the minimum supported versions for TLS.')
-
-    # Create SSLContext object
-    if tls_version is None:
-        tls_version = ssl.PROTOCOL_TLSv1
-        # If the python version supports it, use highest TLS version automatically
-        if hasattr(ssl, "PROTOCOL_TLS"):
-            tls_version = ssl.PROTOCOL_TLS
-
-    context = ssl.SSLContext(tls_version)
-
     logging.info('-- SETTING TLS settings')
-    
     mqtt["client"].tls_set(ca_certs="/usr/share/ca-certificates/mozilla/DST_Root_CA_X3.crt")
-    # mqtt["client"].tls_set(ca_certs="/home/emrys/tmp/mqtt/certs/mqtt.emoncms.org")
-    # mqtt["client"].tls_set(ca_certs="/home/emrys/tmp/mqtt/certs/mqtt.emoncms.org/fullchain.pem")
-    mqtt["client"].tls_insecure_set(True)
-    
-    # @todo get this cert to work!
-
-    # mqtt["client"].tls_set(ca_certs=None,certfile="/home/emrys/.ssh/mqtt/m2mqtt_ca.crt",keyfile=None,cert_reqs=ssl.CERT_NONE,tls_version=ssl.PROTOCOL_TLSv1)
 
 def connect():
     """ calls the mqtt client connection method 
@@ -281,15 +277,15 @@ def connect():
         counts number of connection attempts
     """
     global mqtt
-    mqtt["client"].enable_logger(logger=logging)
+    # mqtt["client"].enable_logger(logger=logging)
 
-    if mqtt["tls"]:
-        context = setTLS()
+    if mqtt["tls"] == True:
+        setTLS()
 
     logging.debug("Attempt %s" % mqtt["counter"])
     mqtt["counter"] += 1
     mqtt["client"].username_pw_set(mqtt["username"], mqtt["password"])
-    mqtt["client"].connect(mqtt["host"], mqtt["port"], 60)  # connect
+    mqtt["client"].connect(mqtt["host"], mqtt["port"], 60) # connect
 
 def merge_two_dicts(x, y):
     z = x.copy()   # start with x's keys and values

@@ -1,12 +1,20 @@
 <?php
 define('DEBUG', true);
 
-include "lib/core.php";
-
 if (DEBUG) {
     error_reporting(E_ALL);
     ini_set('display_errors', 'on');
 }
+
+include "lib/core.php";
+
+$settings_dir = dirname(__DIR__) . DIRECTORY_SEPARATOR;
+include $settings_dir . "settings.php";
+// use local dev version if available
+if (file_exists( $settings_dir . "settings.dev.php")) {
+    include $settings_dir . "settings.dev.php";
+}
+$settings = isset($settings) ? $settings : array();
 // Basic session
 session_start();
 $session = array("valid"=>false, "username"=>false,"password"=>false);
@@ -29,7 +37,7 @@ switch ($q)
     case "feeds":
         $format = "themedhtml";
         if ($session["valid"]) {
-            $content = view("views/feeds.php", array("session"=>$session));
+            $content = view("views/feeds.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
         }
@@ -38,7 +46,7 @@ switch ($q)
     case "minimal":
         $format = "themedhtml";
         if ($session["valid"]) {
-            $content = view("views/minimal.php", array("session"=>$session));
+            $content = view("views/minimal.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
         }
@@ -47,7 +55,16 @@ switch ($q)
     case "vuetest":
         $format = "themedhtml";
         if ($session["valid"]) {
-            $content = view("views/vuetest.php", array("session"=>$session));
+            $content = view("views/vuetest.php", array("settings"=>$settings,"session"=>$session));
+        } else {
+            $content = view("views/login_view.php");
+        }
+        break;
+
+    case "graph":
+        $format = "themedhtml";
+        if ($session["valid"]) {
+            $content = view("views/graph.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
         }

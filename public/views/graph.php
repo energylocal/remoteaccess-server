@@ -49,17 +49,16 @@
 <script id="source" language="javascript" type="text/javascript">
 
 var session = <?php echo json_encode($session); ?>;
-
+var settings = <?php echo json_encode($settings); ?>;
 var options = {
     username: session.username,
     password: session.password,
-    clientId: 'mqttjs_' + session.username + '_' + Math.random().toString(16).substr(2, 8), // @todo: output 6 digit random hex number: eg a31bc1
-    port: 8083,
-    ejectUnauthorized: false
+    clientId: 'mqttjs_' + session.username + '_' + Math.random().toString(16).substr(2, 8),
+    port: settings.port,
+    host: settings.host
 }
 
-console.log("mqtt connect");
-var client = mqtt.connect("wss://mqtt.emoncms.org", options)
+var client = mqtt.connect(options.host, options)
 
 var feedid = <?php echo $feedid; ?>;
 var feedname = "<?php echo $feedname; ?>";
@@ -184,8 +183,8 @@ $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw(
     })
 
     client.on('message', function (topic, message) {
-        // message is Buffer
-        console.log("response received");
+        // message
+        console.log("response received", message.toString());
         data = JSON.parse(message.toString());
         plot();
     })
@@ -194,10 +193,19 @@ $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw(
         console.log("mqtt: requesting feed data");
         var publish_options = {
             clientId: options.clientId,
-            path: "/emoncms/feed/data.json?id="+feedid+"&start="+start+"&end="+end+"&interval="+interval+"&skipmissing="+skipmissing+"&limitinterval="+limitinterval
+            action: "feed/data",
+            data: {
+                id:feedid,
+                start: start,
+                end: end,
+                interval: interval,
+                skipmissing: skipmissing,
+                limitinterval: limitinterval
+            }
         }
         client.publish("user/"+options.username+"/request", JSON.stringify(publish_options))
     }
 
 
 </script>
+
