@@ -10,7 +10,7 @@ Install and start remoteaccess service:
 
     sudo ln -s /home/pi/remoteaccess/remoteaccess.service /lib/systemd/system
     sudo systemctl enable remoteaccess.service
-    sudo systemctl start demandshaper
+    sudo systemctl start remoteaccess
     
 View service log:
 
