@@ -6,23 +6,24 @@ $next = str_replace($base,"",$current_url);
 <script src="js/jquery-1.11.3.min.js"></script>
 
 <form id="login-form" action="/login">
-  <div class="mt-5">
-    <h2 class="mb-3">Please Login</h2>
-    <div class="form-group row">
-        <label class="col-sm-3 col-md-2 col-xl-1" for="username">Username</label>
-        <div class="col-sm-6 col-md-4">
-            <input autofocus type="text" name="username" class="form-control" id="username" aria-describedby="userHelp" placeholder="Enter your EmonCMS username">
+    <div class="mt-5">
+        <h2 class="mb-3">Please Login</h2>
+        <div class="form-group row">
+            <label class="col-sm-3 col-md-2 col-xl-1" for="username">Username</label>
+            <div class="col-sm-6 col-md-4">
+                <input autofocus type="text" name="username" class="form-control" id="username" aria-describedby="userHelp" placeholder="Enter your EmonCMS username">
+            </div>
+            <small id="userHelp" class="form-text text-muted"></small>
         </div>
-        <small id="userHelp" class="form-text text-muted"></small>
-    </div>
-    <div class="form-group row">
-        <label class="col-sm-3 col-md-2 col-xl-1" for="password">Password</label>
-        <div class="col-sm-6 col-md-4">
-            <input type="password" name="password" class="form-control" id="password" placeholder="Password...">
+        <div class="form-group row">
+            <label class="col-sm-3 col-md-2 col-xl-1" for="password">Password</label>
+            <div class="col-sm-6 col-md-4">
+                <input type="password" name="password" class="form-control" id="password" placeholder="Password...">
+            </div>
         </div>
+        <input id="next" name="next" type="hidden" value="<?php echo $next ?>">
+        <button id="login" class="btn">Login</button>
     </div>
-    <input id="next" name="next" type="hidden" value="<?php echo $next ?>">
-    <button id="login" class="btn">Login</button>
 </form>
 
 <script>
@@ -43,14 +44,15 @@ $("#login-form").submit(function(event) {
                 var next = base; // default redirect to tld
                 if (result.next) next = result.next; // if auth returned next redirect there
                 if (blacklist.indexOf(base) > -1) next = base; // if next in blacklist go to tld
-                console.log(next);
                 location.replace(next); // remove redirect from browser history
             } else {
                 $("#userHelp").html(result.message);
             }
         },
         error: function (xhr, status, error) {
-            console.log('login error:', status)
+            console.log('login error:', error);
+            var result = JSON.parse(xhr.responseText);
+            $("#userHelp").html(result.message);
         }
     });
 });
