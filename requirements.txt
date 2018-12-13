@@ -1,0 +1,10 @@
+json
+logging
+sys
+time
+ssl
+requests
+os
+
+paho-mqtt==1.4.0
+python-dotenv==0.9.1
