@@ -41,7 +41,7 @@ $content = "";
 
 $scripts[] = 'js/jquery-1.11.3.min.js';
 $scripts[] = 'js/bootstrap.bundle.min.js';
-$ie_scripts = array();
+$ie_scripts = array(); // scripts to only load in IE
 $stylesheets[] = 'css/bootstrap.4.1.3.min.css';
 
 switch ($q)
@@ -70,6 +70,10 @@ switch ($q)
     case "minimal":
         $format = "themedhtml";
         if ($session["valid"]) {
+            $scripts[] = 'js/misc.js';
+            $scripts[] = 'js/mqtt.min.js';
+            $scripts[] = 'js/vis.helper.js';
+            $scripts[] = 'js/minimal.js';
             $content = view("views/minimal.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
@@ -88,18 +92,16 @@ switch ($q)
     case "graph":
         $format = "themedhtml";
         if ($session["valid"]) {
+            $scripts[] = 'js/misc.js';
+            $scripts[] = 'js/mqtt.min.js';
+            $scripts[] = 'lib/flot/jquery.flot.merged.js';
+            $scripts[] = 'js/vis.helper.js';
+            $scripts[] = 'js/graph.js';
+            $ie_scripts[] = 'lib/flot/excanvas.min.js';
+
             $content = view("views/graph.php", array("settings"=>$settings,"session"=>$session));
         } else {
             $content = view("views/login_view.php");
-        }
-        break;
-
-    case "graph":
-        $format = "themedhtml";
-        if ($session["valid"]) {
-            $content = view("views/graph.php",array("session"=>$session));
-        } else {
-            $content = view("views/login_view.php",array());
         }
         break;
         
@@ -233,7 +235,13 @@ switch ($format)
 {
     case "themedhtml":
         header('Content-Type: text/html');
-        print view("views/theme.php", array('session'=>$session, "content"=>$content, "scripts"=>$scripts, "ie_scripts"=>$ie_scripts,"stylesheets"=>$stylesheets));
+        print view("views/theme.php", array(
+            'session' => $session,
+            'content' => $content,
+            'scripts' => $scripts,
+            'ie_scripts' => $ie_scripts,
+            'stylesheets' => $stylesheets
+        ));
         break;
     case "html":
         header('Content-Type: text/html');
