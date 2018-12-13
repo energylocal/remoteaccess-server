@@ -751,38 +751,20 @@ MQTT.connect();
 
     var app3 = new Vue({
         el: '#graph-section',
-        data: {
-            shared: STORE.state,
-            local: {
-                placeholder: document.querySelector('#graph'),
-                width: 0,
-                height: 0,
-                top_offset: 0,
-                timeout: null
-            }
-        },
+        data:  STORE.state,
         methods: {
             layout: function(){
-                if(this.shared.view === 'graph') {
-                    LOGGER.debug("GRAPH: layout() resizeing graph container");
-                    var placeholder_bound = this.local.placeholder.parentNode;
-                    this.local.width = placeholder_bound.offsetWidth;
-                    this.local.height = this.local.width * 0.5;
-
+                if(this.view === 'graph') {
                     // wait for animation to complete
-                    if(!this.local.timeout){
-                        var vm = this;
-                        this.local.timeout = setTimeout(function(){
-                            vm.layout();
-                            vm.local.timeout = null
-                        },1000)
-                    } else {
-                        this.draw();
-                    }
+                    var vm = this;
+                    LOGGER.debug("app3: layout() resizeing graph container");
+                    vm.draw();
                 }
             },
             draw: function(){
                 // draw and plot graph
+                LOGGER.debug("app3: draw()");
+                
                 var npoints = 800;
                 var timeWindow = 3600000 * 24; // one hour x 24 = one day
                 var start = new Date() - timeWindow;
@@ -792,8 +774,8 @@ MQTT.connect();
                 var limitinterval = 1;
 
                 var feedidsList = [];
-                for (z in this.shared.selectedFeeds) {
-                    let feed = this.shared.selectedFeeds[z];
+                for (z in this.selectedFeeds) {
+                    let feed = this.selectedFeeds[z];
                     feedidsList.push(feed.id); 
                 }
                 // request the data. received data will be plotted
@@ -817,25 +799,20 @@ MQTT.connect();
             }
         },
         watch: {
-            'shared.selectedFeeds': {
+            selectedFeeds: {
                 handler: function(){
                     // if selected feeds un-selected then hide graph
                     LOGGER.debug('vm-graph->watcher:selectedFeeds.. selection modified');
-                    if (this.shared.view === 'graph') {
-                        if(this.shared.selectedFeeds.length <= 0) {
+                    if (this.view === 'graph') {
+                        if(this.selectedFeeds.length <= 0) {
                             // show full list if none selected
                             STORE.setView('list');
                         }else{
-                            this.draw();
+                            this.layout();
                         }
                     }
                 },
                 deep: true
-            }, 
-            'shared.view': function(newVal, oldVal) {
-                if (newVal === 'graph') {
-                    this.layout();
-                }
             }
         },
         mounted() {

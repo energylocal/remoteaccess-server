@@ -58,6 +58,7 @@ switch ($q)
             $scripts[] = 'lib/flot/jquery.flot.merged.js';
             $scripts[] = 'js/vis.helper.js';
             $scripts[] = 'js/feeds.js';
+            $scripts[] = 'lib/flot/jquery.flot.resize.js';
             $ie_scripts[] = 'lib/flot/excanvas.min.js';
             $stylesheets[] = 'css/feeds.css';
             $content = view("views/feeds.php", array("settings"=>$settings,"session"=>$session));
