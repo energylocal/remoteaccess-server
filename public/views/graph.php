@@ -183,9 +183,9 @@ $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw(
     })
 
     client.on('message', function (topic, message) {
-        // message is Buffer
-        console.log("response received", message.toString());
-        data = JSON.parse(message.toString());
+        // message
+        var response = JSON.parse(message.toString());
+        data = response.result;
         plot();
     })
 
@@ -208,3 +208,4 @@ $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw(
 
 
 </script>
+

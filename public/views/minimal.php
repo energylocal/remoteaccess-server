@@ -1,12 +1,15 @@
 <h2>Hello World</h2>
 <p>Emoncms is a powerful open-source web-app for processing, logging and visualising energy, temperature and other environmental data.</p>
 
+<style>
+tr { cursor:pointer }
+</style>
 
 <div class="alert alert-warning">
   <strong>Loading:</strong> Remote feed list, please wait 5 seconds...
 </div>
 
-<table id="feeds" class="table"></table>
+<table id="feeds" class="table table-hover"></table>
 
 <script src="js/jquery-1.11.3.min.js"></script>
 <script src="js/mqtt.min.js"></script>
@@ -22,6 +25,8 @@ var options = {
     port: 8083,
     ejectUnauthorized: false
 }
+
+var feeds = [];
 
 console.log("mqtt connect");
 var client = mqtt.connect("wss://mqtt.emoncms.org", options)
@@ -39,7 +44,8 @@ client.on('connect', function () {
 client.on('message', function (topic, message) {
     // message is Buffer
     console.log("response received");
-    var feeds = JSON.parse(message.toString());
+    var response = JSON.parse(message.toString());
+    feeds = response.result;
     draw(feeds);
 })
 
@@ -47,7 +53,7 @@ function publish() {
     console.log("mqtt: requesting feed list");
     var publish_options = {
         clientId: options.clientId,
-        path: "/emoncms/feed/list.json"
+        action: "feed/list"
     }
     client.publish("user/"+options.username+"/request", JSON.stringify(publish_options))
 }
@@ -61,10 +67,15 @@ function draw(feeds) {
         row += "<td>"+feeds[z].tag+"</td>";
         row += "<td>"+list_format_updated(feeds[z].time)+"</td>";
         row += "<td>"+list_format_value(feeds[z].value)+"</td>";
-        out += "<tr>"+row+"</tr>";
+        out += "<tr row="+z+">"+row+"</tr>";
     }
     $("#feeds").html(out);
     $(".alert").hide();
 }
+
+$("#feeds").on("click","tr",function() {
+    var z = $(this).attr("row");
+    window.location = "graph?id="+feeds[z].id+"&name="+feeds[z].name;
+});
 
 </script>
