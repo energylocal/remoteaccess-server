@@ -83,7 +83,7 @@
         </transition>
         <h4 v-if="shared.status === 'error'"> {{ shared.error }} </h4>
         <div id="graph_bound" style="width:100%; height: 100%; position:relative; ">
-            <div id="graph" class="bg-light" style="width:400px; height: 400px"></div>
+            <div id="graph" class="bg-light" style="width:100%; height: 400px"></div>
             <div id="graph-buttons" style="position:absolute; top:18px; right:32px; opacity:0.5;">
                 <div class='btn-group'>
                     <button class='btn graph-time' type='button' time='1'>D</button>

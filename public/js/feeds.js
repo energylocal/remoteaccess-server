@@ -799,7 +799,6 @@ MQTT.connect();
                 // request the data. received data will be plotted
                 var feedids = feedidsList.join(',');
 
-                console.log('def', feedids);
                 GRAPH.draw(feedids, start, end, interval, skipmissing, limitinterval)
             }
         },
@@ -850,7 +849,6 @@ MQTT.connect();
                 if ( !resizeTimeout ) {
                     resizeTimeout = setTimeout(function() {
                         resizeTimeout = null;
-                        console.info( 'emrys resize','debounced' );
                         vm.layout();
                     }, 250);
                 }
