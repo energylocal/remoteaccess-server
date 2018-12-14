@@ -1,4 +1,4 @@
-.env
-.env.dev
 settings.dev.php
 settings.php
+remoteaccess.env
+remoteaccess.env.dev
