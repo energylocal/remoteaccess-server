@@ -76,31 +76,36 @@
 
 <div class="row split">
     <section id="graph-section" class="col col-slide animate" 
-        :class="{'wide': view == 'graph', 'col-hidden': view === 'list'}"
+        :class="{'wide': shared.view == 'graph', 'col-hidden': shared.view === 'list'}"
     >
         <transition name="fade">
-        <h2 class="animate" v-if="selectedFeedNames !== ''">Graph: {{ selectedFeedNames }} </h2>
+        <h2 class="animate" v-if="false && shared.selectedFeedNames !== ''">Graph: {{ shared.selectedFeedNames }} </h2>
         </transition>
-        <h4 v-if="status === 'error'"> {{ error }} </h4>
-        <div id="graph_bound" style="height: 100%; width: 100%; position:relative;" class="pl-1 pt-3 bg-light">
+        <h4 v-if="shared.status === 'error'"> {{ shared.error }} </h4>
+
+        <div style="opacity:.8;z-index:2" class="p-2 font-weight-bold position-absolute bg-light"
+            :style="{top: local.tooltip.top, left: local.tooltip.left, display: local.tooltip.show ? 'block': 'none'}" 
+        >
+            {{local.tooltip.contents}}
+        </div>
+        <div id="graph_bound" style="height: 100%; max-height: 500px; width: 100%;">
             <div id="graph" style="width:100%; height: 100%"></div>
-            <div id="graph-buttons" style="position:absolute; top:18px; right:32px; opacity:0.5;">
-                <div class='btn-group'>
-                    <button class='btn graph-time' type='button' time='1'>D</button>
-                    <button class='btn graph-time' type='button' time='7'>W</button>
-                    <button class='btn graph-time' type='button' time='30'>M</button>
-                    <button class='btn graph-time' type='button' time='365'>Y</button>
+            <div id="graph-buttons" class="btn-toolbar d-flex justify-content-around">
+                <div class="btn-group mb-2" role="toolbar">
+                    <button class="btn btn-outline-info" type="button" @click="timewindow(1)">D</button>
+                    <button class="btn btn-outline-info" type="button" @click="timewindow(7)">W</button>
+                    <button class="btn btn-outline-info" type="button" @click="timewindow(30)">M</button>
+                    <button class="btn btn-outline-info" type="button" @click="timewindow(365)">Y</button>
                 </div>
 
-                <div class='btn-group' id='graph-navbar' style='display: none;'>
-                    <button class='btn graph-nav' id='zoomin'>+</button>
-                    <button class='btn graph-nav' id='zoomout'>-</button>
-                    <button class='btn graph-nav' id='left'><</button>
-                    <button class='btn graph-nav' id='right'>></button>
+                <div class="btn-group mb-2" id="graph-navbar" role="toolbar">
+                    <button class="btn btn-outline-secondary" @click="zoomin">+</button>
+                    <button class="btn btn-outline-secondary" @click="zoomout">-</button>
+                    <button class="btn btn-outline-secondary" @click="panleft"><</button>
+                    <button class="btn btn-outline-secondary" @click="panright">></button>
                 </div>
             </div>
         </div>
-
     </section><!-- /#graph-section -->
     
 
