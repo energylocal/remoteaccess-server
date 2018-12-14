@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """ Fake EmonCMS input to a single input
 Random number continually posted into local install of EmonCMS via API every 10 seconds.
-Settings in ../.env  or ../.env.dev loaded with dotenv library
+Settings in ../remoteaccess.env  or ../remoteaccess.env.dev loaded with dotenv library
 """
 import requests
 import json
@@ -12,9 +12,14 @@ from dotenv import load_dotenv
 
 # load settings from .env file
 _dir = path.dirname(path.dirname(path.abspath(__file__)))
-dotenv_path = path.join(_dir, '.env')
-if path.isfile(path.join(_dir, '.env.dev')) :
-    dotenv_path = path.join(_dir, '.env.dev')
+
+if path.isfile(path.join(_dir, 'remoteaccess.env')) :
+    dotenv_path = path.join(_dir, 'remoteaccess.env')
+else:
+    exit('remoteaccess.env not found')
+
+if path.isfile(path.join(_dir, 'remoteaccess.env.dev')) :
+    dotenv_path = path.join(_dir, 'remoteaccess.env.dev')
 load_dotenv(dotenv_path)
 
 # settings
