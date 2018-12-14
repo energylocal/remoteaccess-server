@@ -51,6 +51,7 @@
 #feedslist-section.narrow #feed-list > li .feed-name {
     cursor: pointer;
 }
+
 /* show feed update status as red,yellow,green circle  - mobile only*/
 @media (max-width: 575px) {
     .list-group-item-success:before{

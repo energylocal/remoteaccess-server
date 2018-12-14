@@ -576,7 +576,7 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
         for (index in response.result) {
             // plot the data points
             var feed = response.result[index];
-            data.push({data: feed.data, label: 'index ' + index});
+            data.push({data: feed.data, label: Store.getFeed(feed.feedid).name, feedid: feed.feedid});
         }
         
         var placeholder = document.querySelector('#graph');
@@ -758,44 +758,114 @@ MQTT.connect();
 
     var app3 = new Vue({
         el: '#graph-section',
-        data:  STORE.state,
+        data:  {
+            shared: STORE.state,
+            local: {
+                start: new Date() - (3600000 * 24),// one hour x 24 = one day
+                end: new Date().getTime(),
+                ymin: null,
+                ymax: null,
+                y2min: null,
+                y2max: null,
+                npoints: 800,
+                tooltip: {
+                    left: 0,
+                    top: 0,
+                    contents:'',
+                    previousPoint: null,
+                    show: false
+                }
+            }
+        },
         methods: {
             layout: function(){
-                if(this.view === 'graph') {
-                    // wait for animation to complete
-                    var vm = this;
+                if(this.shared.view === 'graph') {
                     LOGGER.debug("app3: layout() resizeing graph container");
-                    vm.draw();
+                    this.draw();
                 }
             },
             draw: function(){
                 // draw and plot graph
                 LOGGER.debug("app3: draw()");
                 
-                var npoints = 800;
-                var timeWindow = 3600000 * 24; // one hour x 24 = one day
-                var start = new Date() - timeWindow;
-                var end = new Date().getTime();
-                var interval = Math.round(((end - start)/npoints)/1000);
                 var skipmissing = 1;
                 var limitinterval = 1;
 
                 var feedidsList = [];
-                for (z in this.selectedFeeds) {
-                    let feed = this.selectedFeeds[z];
+                for (z in this.shared.selectedFeeds) {
+                    let feed = this.shared.selectedFeeds[z];
                     feedidsList.push(feed.id); 
                 }
                 // request the data. received data will be plotted
                 var feedids = feedidsList.join(',');
+                GRAPH.draw(feedids, this.local.start, this.local.end, this.interval, skipmissing, limitinterval)
+            },
+            timewindow: function(time){
+                this.local.start = ((new Date()).getTime())-(3600000*24*time);	//Get start time
+                this.local.end = (new Date()).getTime();	//Get end time
+                this.draw();
+            },
+            zoomin: function(){
+                var time_window = this.local.end - this.local.start;
+                var middle = this.local.start + time_window / 2;
+                time_window = time_window * 0.5;
+                this.local.start = middle - (time_window/2);
+                this.local.end = middle + (time_window/2);
+                this.draw();
+            },
+            zoomout: function(){
+                var time_window = this.local.end - this.local.start;
+                var middle = this.local.start + time_window / 2;
+                time_window = time_window * 2;
+                this.local.start = middle - (time_window/2);
+                this.local.end = middle + (time_window/2);
+                this.draw();
+            },
+            panleft: function(){
+                var time_window = this.local.end - this.local.start;
+                var shiftsize = time_window * 0.2;
+                this.local.start -= shiftsize;
+                this.local.end -= shiftsize;
+                this.draw();
+            },
+            panright: function(){
+                var time_window = this.local.end - this.local.start;
+                var shiftsize = time_window * 0.2;
+                this.local.start += shiftsize;
+                this.local.end += shiftsize;
+                this.draw();
+            },
+            setRange: function(event, ranges){
+                LOGGER.verbose("app3: setRange() new chart range selected");
 
-                GRAPH.draw(feedids, start, end, interval, skipmissing, limitinterval)
+                this.local.start = ranges.xaxis.from;
+                this.local.end = ranges.xaxis.to;
+                this.draw();
+            },
+            tooltip: function(event, pos, item){
+                if (item) {
+                    if (this.local.tooltip.previousPoint != item.datapoint) {
+                        this.local.tooltip.previousPoint = item.datapoint;
+                        var container_pos = document.querySelector('#graph').getBoundingClientRect();
+                        var itemTime = item.datapoint[0];
+                        var itemVal = item.datapoint[1];
+                        this.local.tooltip.left = (item.pageX - (container_pos.left + 25)) + 'px'; // shift off mouse pointer pos to avoid on/off bug
+                        this.local.tooltip.top = (item.pageY - (container_pos.top - 30)) + 'px'; // shift off mouse pointer pos to avoid on/off bug
+                        var units = STORE.getFeed(item.series.feedid).unit;
+                        this.local.tooltip.contents = itemVal.toFixed(2) + " " + units;
+                        this.local.tooltip.show = true;
+                    }
+                } else {
+                    this.local.tooltip.show = false;
+                    previousPoint = null;
+                }
             }
         },
         computed: {
             selectedFeedNames: function(){
                 names = [];
-                for(i in this.selectedFeeds) {
-                    var feed = this.selectedFeeds[i];
+                for(i in this.shared.selectedFeeds) {
+                    var feed = this.shared.selectedFeeds[i];
                     names.push(feed.name);
                 }
                 if (names.length > 2) {
@@ -803,15 +873,18 @@ MQTT.connect();
                 } else {
                     return names.join(', ');
                 }
+            },
+            interval: function() {
+                return Math.round(((this.local.end - this.local.start)/this.local.npoints)/1000)
             }
         },
         watch: {
-            selectedFeeds: {
+            'shared.selectedFeeds': {
                 handler: function(){
                     // if selected feeds un-selected then hide graph
                     LOGGER.debug('vm-graph->watcher:selectedFeeds.. selection modified');
-                    if (this.view === 'graph') {
-                        if(this.selectedFeeds.length <= 0) {
+                    if (this.shared.view === 'graph') {
+                        if(this.shared.selectedFeeds.length <= 0) {
                             // show full list if none selected
                             STORE.setView('list');
                         }else{
@@ -822,21 +895,17 @@ MQTT.connect();
                 deep: true
             }
         },
-        mounted() {
-            // RESIZE THE GRAPH ON WINDOW RESIZE
-            // ref to the vue instance
-            var vm = this;
-            // Setup a timer
-            var resizeTimeout;
-            // Listen for resize events (debounce)
-            window.addEventListener('resize', function ( event ) {
-                if ( !resizeTimeout ) {
-                    resizeTimeout = setTimeout(function() {
-                        resizeTimeout = null;
-                        vm.layout();
-                    }, 250);
-                }
-            }, false);
+        mounted: function(){
+            // bind the jquery events (not possible within vue template)
+            $(document).on('touchend', '#graph', this.setRange);
+            $(document).on('plotselected', '#graph', this.setRange);
+            $(document).on('plothover', '#graph', this.tooltip);
+        },
+        beforeDestroy: function(){
+            // remove the jquery events
+            $(document).off('touchend', '#graph', this.setRange);
+            $(document).off('plotselected', '#graph', this.setRange);
+            $(document).off('plothover', '#graph', this.tooltip);
         }
     }); // end of #graph vuejs
 
