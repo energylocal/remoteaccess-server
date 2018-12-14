@@ -6,6 +6,7 @@ Settings in ../remoteaccess.env  or ../remoteaccess.env.dev loaded with dotenv l
 import requests
 import json
 import time
+import sys
 import random
 from os import path, getenv
 from dotenv import load_dotenv
@@ -16,7 +17,8 @@ _dir = path.dirname(path.dirname(path.abspath(__file__)))
 if path.isfile(path.join(_dir, 'remoteaccess.env')) :
     dotenv_path = path.join(_dir, 'remoteaccess.env')
 else:
-    exit('remoteaccess.env not found')
+    print('remoteaccess.env not found')
+    sys.exit(0)
 
 if path.isfile(path.join(_dir, 'remoteaccess.env.dev')) :
     dotenv_path = path.join(_dir, 'remoteaccess.env.dev')

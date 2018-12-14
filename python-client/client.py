@@ -16,7 +16,8 @@ _dir = path.dirname(path.dirname(path.abspath(__file__)))
 if path.isfile(path.join(_dir, 'remoteaccess.env')) :
     dotenv_path = path.join(_dir, 'remoteaccess.env')
 else:
-    exit('remoteaccess.env not found')
+    print('remoteaccess.env not found')
+    sys.exit(0)
 
 # Load local dev version if exists
 if path.isfile(path.join(_dir, 'remoteaccess.env.dev')) :
