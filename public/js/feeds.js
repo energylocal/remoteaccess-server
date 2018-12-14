@@ -569,7 +569,7 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
 
         var options = {
             canvas: true,
-            lines: { fill: true },
+            lines: { fill: false },
             xaxis: {
                 position: 'bottom',
                 mode: "time",
