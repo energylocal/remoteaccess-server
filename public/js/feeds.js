@@ -237,8 +237,10 @@ var STORE = {
                     lastupdate = parseInt(feed.time) > lastupdate ? parseInt(feed.time) : lastupdate;
                     // Declaring Reactive "selected" Property
                     if (prevNodes[n]) {
+                        Vue.set(feed, 'isRight', prevNodes[n].feeds[f].isRight === true);
                         Vue.set(feed, 'selected', prevNodes[n].feeds[f].selected === true);
                     } else {
+                        Vue.set(feed, 'isRight', false);
                         Vue.set(feed, 'selected', false);
                     }
                 }
@@ -502,6 +504,7 @@ var MQTT = (function(Store, Session, Settings, Endpoints, Logger, RefreshRate, U
 //-----------------------------------------------------------------------------
 var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
     var brokerOptions = Mqtt.options;
+    var previous_response;
     
     // publish request to mqtt broker
     function get_feed_data(feedids, start, end, interval, skipmissing, limitinterval) {
@@ -544,8 +547,18 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
     }
     // place data points 
     function plot(response) {
+        // store previous response
+        if (typeof response == 'undefined') {
+            response = previous_response;
+        } else {
+            previous_response = response;
+        }
+        if (typeof response === 'undefined' || Object.keys(response).length == 0) return void 0;
+        
         Logger.debug("GRAPH: plot() triggered with", response);
-        if (typeof response === 'undefined') return false;
+        if (typeof response === 'undefined') {
+            return false;
+        }
 
         // return api errors
         if (typeof response.result.success !== 'undefined') {
@@ -558,13 +571,17 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
             canvas: true,
             lines: { fill: true },
             xaxis: {
+                position: 'bottom',
                 mode: "time",
                 timezone: "browser",
                 min: response.request.data.start,
                 max: response.request.data.end,
                 minTickSize: [response.request.data.interval, "second"]
             },
-            //yaxis: { min: 0 },
+            yaxes: [
+                {}, 
+                {position: 'right'}
+            ],
             grid: { hoverable: true, clickable: true },
             selection: { mode: "x" },
             touch: { pan: "x", scale: "x" }
@@ -574,8 +591,14 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
         var data = [];
         for (index in response.result) {
             // plot the data points
-            var feed = response.result[index];
-            data.push({data: feed.data, label: Store.getFeed(feed.feedid).name, feedid: feed.feedid});
+            var result = response.result[index];
+            var feed = Store.getFeed(result.feedid);
+            data.push({
+                data: result.data, 
+                label: feed.name, 
+                feedid: feed.id, 
+                yaxis: feed.isRight ? 2: 1
+            });
         }
         
         var placeholder = document.querySelector('#graph');
@@ -636,6 +659,7 @@ MQTT.connect();
                 if (missedIntervals > 2 && missedIntervals < 9) result.push('list-group-item-warning');
                 if (missedIntervals > 8) result.push('list-group-item-danger');
                 if (feed.selected) result.push('list-group-item-selected');
+                if (this.view === 'graph') result.push('pl-2');
                 return result;
             },
             nodeSelectedFeeds: function(nodes_key) {
@@ -680,6 +704,7 @@ MQTT.connect();
             feedListItemNameClass: function () {
                 if (this.view === 'graph') {
                     result = 'col-md-12 col-xl-12';
+                    result = '';
                 } else {
                     result = 'col-md-5 col-xl-4';
                 }
@@ -884,6 +909,12 @@ MQTT.connect();
                             this.layout();
                         }
                     }
+                },
+                deep: true
+            },
+            'shared.nodes': {
+                handler: function(){
+                    GRAPH.plot()
                 },
                 deep: true
             }

@@ -163,9 +163,9 @@
                         v-bind:data-id="feed.id"
                         v-bind:title="'feed #' + feed.id"
                     >
-                        <div class="d-flex justify-content-between" :class="{'no-gutters': view === 'list'}">
+                        <div class="d-flex justify-content-between no-gutters" :class="{'xno-gutters': view === 'list'}">
                             <div class="col col-8 col-lg-9" :class="{'col-12': view === 'graph','col-lg-12': view === 'graph'}">
-                                <div class="d-flex" :class="{'no-gutters': view === 'list'}">
+                                <div class="d-flex no-gutters align-items-center" :class="{'xno-gutters': view === 'list'}">
                                     <div v-if="view === 'list'" class="pl-3 pull-left">
                                         <div class="custom-control custom-checkbox text-center">
                                             <input class="custom-control-input select-feed"
@@ -179,17 +179,24 @@
                                             <label v-bind:for="'select-feed-' + feed.id" class="custom-control-label position-absolute"></label>
                                         </div>
                                     </div>
-                                    <div class="feed-name text-truncate col pl-1" 
-                                        v-bind:title="feed.name"
-                                        v-bind:class="feedListItemNameClass" 
-                                        v-on:click.self="toggleSelected($event, feed)"
-                                    >
-                                        {{feed.name}}
+                                    <div class="col pl-1 row no-gutters align-items-center">
+                                        <div class="feed-name text-truncate col" 
+                                            v-bind:title="feed.name"
+                                            v-bind:class="feedListItemNameClass" 
+                                            v-on:click.self="toggleSelected($event, feed)"
+                                        >
+                                            {{feed.name}}
+                                        </div>
+                                        <div class="btn-group col col-auto btn-group-sm" :class="{'d-none':view==='list' || !feed.selected}">
+                                            <button class="btn btn-outline-info" :class="{'active':!feed.isRight}" @click="feed.isRight = false">&lt;</button>
+                                            <button class="btn btn-outline-info" :class="{'active':feed.isRight}" @click="feed.isRight = true">&gt;</button>
+                                        </div>
                                     </div>
+
                                     <div v-if="view === 'list'" class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
                                         <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
                                             <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
-                                                <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
+                                                <use v-bind:href="feed.public == 1 ? '#lock-unlocked': '#lock-locked'"></use>
                                             </svg>
                                         </div>
                                         <div class="col d-none d-md-block text-truncate col-5 col-md-6" v-bind:title="getEngineName(feed)">
