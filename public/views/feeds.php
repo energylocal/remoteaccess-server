@@ -185,11 +185,11 @@
                                             v-bind:class="feedListItemNameClass" 
                                             v-on:click.self="toggleSelected($event, feed)"
                                         >
-                                            {{feed.name}} {{feed.isRight}}
+                                            {{feed.name}}
                                         </div>
                                         <div class="btn-group col col-auto btn-group-sm" :class="{'d-none':view==='list' || !feed.selected}">
-                                            <button class="btn btn-outline-info" :class="{'active':!feed.isRight}" @click="toggleAxis('left', feed.id)">&lt;</button>
-                                            <button class="btn btn-outline-info" :class="{'active':feed.isRight}" @click="toggleAxis('right', feed.id)">&gt;</button>
+                                            <button class="btn btn-outline-info" :class="{'active':!feed.isRight}" @click="feed.isRight = false">&lt;</button>
+                                            <button class="btn btn-outline-info" :class="{'active':feed.isRight}" @click="feed.isRight = true">&gt;</button>
                                         </div>
                                     </div>
 
