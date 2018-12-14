@@ -227,6 +227,15 @@ def call_api(msg):
     request = json.loads(msg)
     # merge the default settings with ones passed in the mqtt topic
     data = merge_two_dicts(emoncms, request)
+    
+    # data['q'] = '' # overwrite modrewrite's "q" parameter
+    # only allow these endpoints
+    whitelist = ['feed/list', 'feed/data']
+    if not data['action'] in whitelist:
+        logging.debug('action %s not found in whitelist' % data['action'])
+        logging.info('EXIT')
+        return
+
     path = "/emoncms/" + data["action"]
     if 'data' in request:
         params = merge_two_dicts(data["parameters"], request["data"])
