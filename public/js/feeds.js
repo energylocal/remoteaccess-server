@@ -209,6 +209,7 @@ var STORE = {
         var nodes = {}
         for (key in this.state.feeds) {
             let feed = this.state.feeds[key];
+            feed.isRight = false;
             if(typeof nodes[feed.tag] === 'undefined') {
                 nodes[feed.tag] = {
                     tag: feed.tag,
@@ -636,6 +637,7 @@ MQTT.connect();
                 if (missedIntervals > 2 && missedIntervals < 9) result.push('list-group-item-warning');
                 if (missedIntervals > 8) result.push('list-group-item-danger');
                 if (feed.selected) result.push('list-group-item-selected');
+                if (this.view === 'graph') result.push('pl-2');
                 return result;
             },
             nodeSelectedFeeds: function(nodes_key) {
@@ -657,6 +659,10 @@ MQTT.connect();
             },
             setSelectedFeeds: function() {
                 STORE.setSelectedFeeds();
+            },
+            toggleAxis: function(direction, feed){
+                isRight = direction === 'right';
+                feed.isRight = isRight;
             }
         },
         filters: {
@@ -680,6 +686,7 @@ MQTT.connect();
             feedListItemNameClass: function () {
                 if (this.view === 'graph') {
                     result = 'col-md-12 col-xl-12';
+                    result = '';
                 } else {
                     result = 'col-md-5 col-xl-4';
                 }
