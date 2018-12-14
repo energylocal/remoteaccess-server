@@ -191,7 +191,7 @@
                                     <div v-if="view === 'list'" class="d-none col d-none d-sm-flex col-5 col-lg-6 col-xl-4">
                                         <div class="d-none d-sm-block pull-left" v-bind:title="feed.public ? 'Public': 'Private'">
                                             <svg viewBox="0 0 8 8" width="16px" height="16px" style="fill:currentColor">
-                                                <use v-bind:href="feed.public ? '#lock-unlocked': '#lock-locked'"></use>
+                                                <use v-bind:href="feed.public == 1 ? '#lock-unlocked': '#lock-locked'"></use>
                                             </svg>
                                         </div>
                                         <div class="col d-none d-md-block text-truncate col-5 col-md-6" v-bind:title="getEngineName(feed)">
