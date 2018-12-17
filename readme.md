@@ -14,10 +14,10 @@ https://mqtt.emoncms.org
 
 ## Client Installation
 
-Create .env settings file with emoncms.org username and password.
+Create remoteaccess.env settings file with emoncms.org username and password.
 
-    cp .env.example .env
-    nano .env
+    cp remoteaccess.env.example .env
+    nano remoteaccess.env
 
 Enter your local emoncms apikey and remote emoncms.org account username and password to connect:
 
@@ -32,8 +32,8 @@ Enter your local emoncms apikey and remote emoncms.org account username and pass
     MQTT_PORT=8883
     MQTT_TLS=true
 
-    # Save As .env for production
-    # Save As .env.dev for development
+    # Save As remoteaccess.env for production
+    # Save As remoteaccess.env.dev for development
 
 Install python dependencies:
 
