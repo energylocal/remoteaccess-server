@@ -14,11 +14,11 @@ from dotenv import load_dotenv
 _dir = path.dirname(path.dirname(path.abspath(__file__)))
 # Load file from the path.
 dotenv_path = dotenv_path = path.join(_dir, 'remoteaccess.env.dev')
-if path.isfile(dotenv_path) is None:
+if path.isfile(dotenv_path) is False:
     # Load local dev version if exists
     dotenv_path = path.join(_dir, 'remoteaccess.env')
 
-if path.isfile(dotenv_path) is None:
+if path.isfile(dotenv_path) is False:
     logging.error('.env file not found')
     sys.exit(0)
 else:
