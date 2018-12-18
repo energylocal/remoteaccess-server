@@ -957,13 +957,13 @@ MQTT.connect();
         },
         mounted: function(){
             // bind the jquery events (not possible within vue template)
-            $(document).on('touchend', '#graph', this.setRange);
+            $(document).on('touchended', '#graph', this.setRange);
             $(document).on('plotselected', '#graph', this.setRange);
             $(document).on('plothover', '#graph', this.tooltip);
         },
         beforeDestroy: function(){
             // remove the jquery events
-            $(document).off('touchend', '#graph', this.setRange);
+            $(document).off('touchended', '#graph', this.setRange);
             $(document).off('plotselected', '#graph', this.setRange);
             $(document).off('plothover', '#graph', this.tooltip);
         }
