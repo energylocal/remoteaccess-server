@@ -227,14 +227,16 @@ var STORE = {
         var prevNodes = this.getNodes();
 
         for (n in nodes) {
-            let lastupdate = 0;
+            let lastupdated = null;
             let size = 0;
             let node = nodes[n];
             for (f in node.feeds) {
                 let feed = node.feeds[f];
                 if (feed){
                     size += parseInt(feed.size);
-                    lastupdate = parseInt(feed.time) > lastupdate ? parseInt(feed.time) : lastupdate;
+                    if (!lastupdated || parseInt(feed.time) > parseInt(lastupdated.time)) {
+                        lastupdated = feed;
+                    }
                     // Declaring Reactive "selected" Property
                     if (prevNodes[n]) {
                         Vue.set(feed, 'isRight', prevNodes[n].feeds[f].isRight === true);
@@ -247,7 +249,7 @@ var STORE = {
             }
             node.collapsed = prevNodes[n] ? prevNodes[n].collapsed : true;
             node.size = size;
-            node.lastupdate = lastupdate;
+            node.lastupdated = lastupdated;
         }
         STORE.state.nodes = nodes;
     },
@@ -646,6 +648,7 @@ MQTT.connect();
                 }
             },
             missedIntervals(feed) {
+                if (!feed) return void 0;
                 var lastUpdated = new Date(feed.time * 1000);
                 var now = new Date().getTime();
                 var elapsed = (now - lastUpdated) / 1000;
@@ -653,6 +656,7 @@ MQTT.connect();
                 return missedIntervals;
             },
             feedListItemClass: function (feed) {
+                if (!feed) return void 0;
                 var missedIntervals = this.missedIntervals(feed);
                 var result = [];
                 if (missedIntervals < 3) result.push('list-group-item-success');
@@ -661,6 +665,38 @@ MQTT.connect();
                 if (feed.selected) result.push('list-group-item-selected');
                 if (this.view === 'graph') result.push('pl-2');
                 return result;
+            },
+            feedTimeClass: function (feed) {
+                if (!feed) return void 0;
+                var missedIntervals = this.missedIntervals(feed);
+                var result = [];
+                if (missedIntervals < 3) result.push('text-success');
+                if (missedIntervals > 2 && missedIntervals < 9) result.push('text-warning');
+                if (missedIntervals > 8) result.push('text-danger');
+                return result;
+            },
+            feedRelativeTime: function (feed) {
+                if (!feed) return void 0;
+                var time = feed.time * 1000;
+                var servertime = new Date().getTime(); // - table.timeServerLocalOffset;
+                var update = new Date(time).getTime();
+                
+                var secs = (servertime - update) / 1000;
+                var mins = secs / 60;
+                var hour = secs / 3600;
+                var day = hour / 24;
+                
+                var updated = secs.toFixed(0) + "s";
+                if (update == 0 || !$.isNumeric(secs)) updated = "n/a";
+                else if (secs < 0) updated = secs.toFixed(0) + "s";
+                // update time ahead of server date is signal of slow network
+                else if (secs.toFixed(0) == 0) updated = "now";
+                else if (day > 7) updated = "inactive";
+                else if (day > 2) updated = day.toFixed(1) + " days";
+                else if (hour > 2) updated = hour.toFixed(0) + " hrs";
+                else if (secs > 180) updated = mins.toFixed(0) + " mins";
+
+                return updated;
             },
             nodeSelectedFeeds: function(nodes_key) {
                 var selectedNodeFeeds = STORE.getNodeSelectedFeeds(nodes_key);

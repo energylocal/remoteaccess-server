@@ -78,9 +78,7 @@
     <section id="graph-section" class="col col-slide animate" 
         :class="{'wide': shared.view == 'graph', 'col-hidden': shared.view === 'list'}"
     >
-        <transition name="fade">
         <h2 class="animate" v-if="false && shared.selectedFeedNames !== ''">Graph: {{ shared.selectedFeedNames }} </h2>
-        </transition>
         <h4 v-if="shared.status === 'error'"> {{ shared.error }} </h4>
 
         <div style="opacity:.8;z-index:2" class="p-2 font-weight-bold position-absolute bg-light"
@@ -128,23 +126,24 @@
                 >
                     <div class="d-flex col justify-content-between">
                         <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': view === 'graph'}">{{node.tag}}
-                            <transition name="fade">
                             <small v-if="nodeSelectedFeeds(nodes_key).length > 0" class="font-weight-light text-muted d-narrow-none pl-1">
                                 ({{ nodeSelectedFeeds(nodes_key).length }})
                             </small>
-                            </transition>
                         </h5>
-                        <transition name="slide">
-                        <div v-if="view === 'list'" class="col d-none d-sm-block ml-4 pl-4 ml-md-0 pl-md-1 ml-lg-5 pl-lg-3 ml-xl-5 pl-xl-3 text-muted">
+                        <div v-if="view === 'list'" 
+                        class="text-muted col d-none d-sm-block 
+                            ml-4 pl-4 
+                            ml-md-0 pl-md-1 
+                            ml-lg-5 pl-lg-3 
+                            ml-xl-5 pl-xl-3">
                             {{node.size | prettySize}}
                         </div>
-                        </transition>
                     </div>
-                    <transition name="slide">
-                    <div v-if="view === 'list'" class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right"
-                        v-html="list_format_updated(node.lastupdate)"
+                    <div v-if="view === 'list'" 
+                        class="col text-truncate dropdown-toggle d-none d-sm-block col-3 text-right"
+                        v-bind:class="feedTimeClass(node.lastupdated)"
+                        v-html="feedRelativeTime(node.lastupdated)"
                     ></div>
-                    </transition>
                 </a>
             </div><!-- /.card-header -->
 
@@ -213,7 +212,10 @@
                                     <div class="col text-right text-truncate pr-2">
                                         {{list_format_value(feed.value)}} {{feed.unit}}
                                     </div>
-                                    <div class="col col-6 col-md-5 text-right d-none d-sm-block" v-html="list_format_updated(feed.time)"></div>
+                                    <div class="col col-6 col-md-5 text-right d-none d-sm-block" 
+                                        v-bind:class="feedTimeClass(feed)"
+                                        v-html="feedRelativeTime(feed)">
+                                    </div>
                                 </div>
                             </div>
                         </div>
