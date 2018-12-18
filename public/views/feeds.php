@@ -125,7 +125,8 @@
                 v-bind:aria-controls="'collapse_' + node.id"
                 >
                     <div class="d-flex col justify-content-between">
-                        <h5 class="col d-flex mb-0 col-md-8 col-xl-6" :class="{'w-100': view === 'graph'}">{{node.tag}}
+                        <h5 class="col d-flex mb-0 col-md-8 col-lg-9 col-xl-10" 
+                            :class="{'w-100': view === 'graph'}">{{node.tag}}
                             <small v-if="nodeSelectedFeeds(nodes_key).length > 0" class="font-weight-light text-muted d-narrow-none pl-1">
                                 ({{ nodeSelectedFeeds(nodes_key).length }})
                             </small>
@@ -133,9 +134,9 @@
                         <div v-if="view === 'list'" 
                         class="text-muted col d-none d-sm-block 
                             ml-4 pl-4 
-                            ml-md-0 pl-md-1 
-                            ml-lg-5 pl-lg-3 
-                            ml-xl-5 pl-xl-3">
+                            ml-md-3 
+                            ml-lg-4 pl-lg-0
+                            ml-xl-3 pl-xl-0">
                             {{node.size | prettySize}}
                         </div>
                     </div>
