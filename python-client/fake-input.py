@@ -11,26 +11,30 @@ import random
 from os import path, getenv
 from dotenv import load_dotenv
 
-# load settings from .env file
 _dir = path.dirname(path.dirname(path.abspath(__file__)))
-
-if path.isfile(path.join(_dir, 'remoteaccess.env')) :
+# Load file from the path.
+dotenv_path = path.join(_dir, 'remoteaccess.env.dev')
+if path.isfile(dotenv_path) is False:
+    # Load local dev version if exists
     dotenv_path = path.join(_dir, 'remoteaccess.env')
-else:
-    print('remoteaccess.env not found')
+
+if path.isfile(dotenv_path) is False:
+    print('.env file not found')
     sys.exit(0)
+else:
+    load_dotenv(dotenv_path)
 
-if path.isfile(path.join(_dir, 'remoteaccess.env.dev')) :
-    dotenv_path = path.join(_dir, 'remoteaccess.env.dev')
-load_dotenv(dotenv_path)
+# SETTINGS
 
-# settings
+# requires write api key in .env settings
 apikey = getenv('EMONCMS_APIKEY')
+# change this if you've installed emoncms in a different location
 base_url = "http://localhost/emoncms/input/post"
 
 def get_data(url):
     """ return the response code and response text from http request """
     response = requests.get(url)
+    print(url)
     return "status: %s %s" % (response.status_code, response.text)
 
 # never ending loop with 10 second interval
@@ -42,6 +46,6 @@ while True:
     # request http response
     response = get_data(url)
     # output response from http request
-    print("%s - posted: %s" % (response, value))
+    print("%s - posted: %s to input \"%s\"" % (response, value, 'emontx:power1'))
     # wait 10s before iterating
     time.sleep(10)

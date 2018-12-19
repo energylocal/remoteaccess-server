@@ -56,7 +56,6 @@ switch ($q)
             $scripts[] = 'js/vue.js';
             $scripts[] = 'js/mqtt.min.js';
             $scripts[] = 'lib/flot/jquery.flot.merged.js';
-            $scripts[] = 'js/vis.helper.js';
             $scripts[] = 'js/feeds.js';
             $scripts[] = 'lib/flot/jquery.flot.resize.js';
             $ie_scripts[] = 'lib/flot/excanvas.min.js';
