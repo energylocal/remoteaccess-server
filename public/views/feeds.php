@@ -86,8 +86,8 @@
         >
             {{local.tooltip.contents}}
         </div>
-        
-        <div id="graph_bound" style="height: 100%; max-height: 30rem; min-height: 15rem; width: 100%;">
+
+        <div id="graph_bound" class="pt-3 pt-sm-0 pb-5" style="height: 100%; max-height: 40rem; min-height: 20rem; width: 100%;">
             <div id="graph" style="width:100%; height: 100%"></div>
             <div id="graph-buttons" class="btn-toolbar d-flex justify-content-around">
                 <div class="btn-group mb-2" role="toolbar">
