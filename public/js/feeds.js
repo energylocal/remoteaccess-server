@@ -593,12 +593,14 @@ var GRAPH = (function (Store, Endpoints, Mqtt, Logger){
             // plot the data points
             var result = response.result[index];
             var feed = Store.getFeed(result.feedid);
-            data.push({
-                data: result.data, 
-                label: feed.name, 
-                feedid: feed.id, 
-                yaxis: feed.isRight ? 2: 1
-            });
+            if (feed) {
+                data.push({
+                    data: result.data, 
+                    label: feed.name, 
+                    feedid: feed.id, 
+                    yaxis: feed.isRight ? 2: 1
+                });                
+            }
         }
         
         var placeholder = document.querySelector('#graph');
