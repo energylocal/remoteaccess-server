@@ -29,10 +29,10 @@
     transition: all .44s ease-in-out;
 }
 .col-hidden {
-    flex-grow: 0;
-    width: 0;
-    overflow: hidden;
-    padding: 0;
+    flex-grow: 0!important;
+    width: 0!important;
+    overflow: hidden!important;
+    padding: 0!important;
 }
 .col-hidden h2{ padding-left: .95rem}
 .wide {

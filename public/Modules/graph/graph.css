@@ -1,0 +1,121 @@
+#wrapper {
+  padding:0px;
+  margin:0px;
+  padding-left: 250px;
+}
+
+#sidebar-wrapper {
+  margin-top:-10px;
+  margin-left: -250px;
+  left: 250px;
+  width: 250px;
+  background: #eee;
+  position: fixed;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+#page-content-wrapper {
+  width: 100%;
+  padding-left:0px;
+}
+
+
+.feed-options {
+    background-color:#eee;
+    overflow-x: scroll;
+}
+
+.feed-options-header {
+    height:40px;
+    background-color:#ccc;
+    font-weight:bold;
+    cursor:pointer;
+    color:#fff;
+}
+
+.feed-options-title {
+  float:left;
+  padding:10px;
+}
+
+.feed-options-show-options {
+	float:right;
+	padding:10px;
+	width:150px;
+	text-align:center;
+	border-left: 1px solid #eee;
+}
+
+.feed-options-show-stats {
+	float:right;
+	padding:10px;
+	width:150px;
+	text-align:center;
+	border-left: 1px solid #eee;
+}
+
+#vis-mode-toggle, #vis-mode-user, #vis-mode-groups{
+    margin:15px 0;
+}
+
+#group-table{
+    width:100%;
+    font-size:12px;
+}
+
+#group-table .user-name{
+    font-size:12px; 
+    padding:4px; 
+    padding-left:8px; 
+    font-weight:bold;
+    background-color:#aaa; 
+    cursor:pointer
+}
+
+
+#group-table .user-feed td{
+    max-width:150px;
+    overflow-x: hidden
+}
+
+.feed-name, .feed-select{
+    display:inline-block
+}
+
+.feed-tag{
+    background-color:#ddd;
+}
+
+.feed{
+    background-color:#f3f3f3;
+    padding:5px 0 0 5px;
+    margin:2px
+}
+
+.feed-tag{
+    padding:5px 0 1px 5px;
+    margin:0px 0px 2px 3px;
+    cursor: pointer
+}
+
+input.feed-tag-checkbox{
+    margin:5px;
+}
+
+.feed-name{
+    width:70%;
+    overflow-x:hidden
+}
+
+.feed-select, .feed-select input, .feed-tag-checkbox-left, .feed-tag-checkbox-right{
+    float:right;
+}
+
+.feed-select, .feed-select input{
+    margin:2px;
+    padding:0;
+}
+input.feed-tag-checkbox-left, input.feed-tag-checkbox-right{
+    margin:0 5px;
+}

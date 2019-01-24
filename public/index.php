@@ -1,348 +1,138 @@
 <?php
 
+define('EMONCMS_EXEC', 1);
+error_reporting(E_ALL);
+ini_set('display_errors', 'on');
 
-include "lib/core.php";
+include "core.php";
+include "route.php";
+include "RemoteAccess.php";
+
+$path = get_application_path();
 
 $settings_dir = dirname(__DIR__) . DIRECTORY_SEPARATOR;
-// use local dev version if available
-$dev_settings_filename = 'settings.dev.php';
-$settings_filename = 'settings.php';
 
-if (file_exists( $settings_dir . $dev_settings_filename)) {
-    include $settings_dir . $dev_settings_filename;
-} elseif(file_exists( $settings_dir . $settings_filename)) {
-    include $settings_dir . $settings_filename;
+// Load settings
+$settings_filename = 'settings.php';
+if(file_exists( $settings_dir.$settings_filename)) {
+    include $settings_dir.$settings_filename;
 }
 $settings = isset($settings) ? $settings : array();
 
-if (defined('DEBUG')){
-    if(DEBUG === true) {
-        error_reporting(E_ALL);
-        ini_set('display_errors', 'on');
-    }
-} else {
-    define('DEBUG', false);
-}
-
 // Basic session
 session_start();
-$session = array("valid"=>false, "username"=>false,"password"=>false);
-if (isset($_SESSION['username']) && isset($_SESSION['password'])) $session["valid"] = true;
+$session = array("valid"=>0,"username"=>false,"password"=>false,"read"=>0,"write"=>0);
+if (isset($_SESSION['username']) && isset($_SESSION['password'])) { $session["valid"] = 1; $session["read"] = 1; } 
 if (isset($_SESSION['username'])) $session["username"] = $_SESSION['username'];
 if (isset($_SESSION['password'])) $session["password"] = $_SESSION['password'];
 
+//if (isset($_GET["apikey"])) {
+//    $apikey = $_GET["apikey"];
+//    if ($apikey=="") {
+//        $session = array("valid"=>true,"username"=>"","password"=>"","read"=>1,"write"=>0);
+//    }
+//}
+
 // Route passed via mod rewrite
 $q = ""; if (isset($_GET['q'])) $q = $_GET['q'];
-// unallowed routes
-$blacklist = explode(',', 'login,logout,another-disallowed-path');
 
-$format = "html";
-$content = "";
+// 5) Get route and load controller
+$route = new Route(get('q'), server('DOCUMENT_ROOT'), server('REQUEST_METHOD'));
 
-$scripts[] = 'js/jquery-1.11.3.min.js';
-$scripts[] = 'js/bootstrap.bundle.min.js';
-$ie_scripts = array(); // scripts to only load in IE
-$stylesheets[] = 'css/bootstrap.4.1.3.min.css';
+if (get('embed')==1) $embed = 1; else $embed = 0;
 
-switch ($q)
-{
-    // example of wrapping a page in a theme view:
-    case "":
-    case "feeds":
-        $format = "themedhtml";
-        if ($session["valid"]) {
-            // add required js to the theme.php template
-            $scripts[] = 'js/misc.js';
-            $scripts[] = 'js/vue.js';
-            $scripts[] = 'js/mqtt.min.js';
-            $scripts[] = 'lib/flot/jquery.flot.merged.js';
-            $scripts[] = 'js/feeds.js';
-            $scripts[] = 'lib/flot/jquery.flot.resize.js';
-            $ie_scripts[] = 'lib/flot/excanvas.min.js';
-            $stylesheets[] = 'css/feeds.css';
-            $content = view("views/feeds.php", array("settings"=>$settings,"session"=>$session));
-        } else {
-            $content = view("views/login_view.php");
-        }
-        break;
-
-    case "minimal":
-        $format = "themedhtml";
-        if ($session["valid"]) {
-            $scripts[] = 'js/misc.js';
-            $scripts[] = 'js/mqtt.min.js';
-            $scripts[] = 'js/vis.helper.js';
-            $scripts[] = 'js/minimal.js';
-            $content = view("views/minimal.php", array("settings"=>$settings,"session"=>$session));
-        } else {
-            $content = view("views/login_view.php");
-        }
-        break;
-
-    case "vuetest":
-        $format = "themedhtml";
-        if ($session["valid"]) {
-            $content = view("views/vuetest.php", array("settings"=>$settings,"session"=>$session));
-        } else {
-            $content = view("views/login_view.php");
-        }
-        break;
-
-    case "graph":
-        $format = "themedhtml";
-        if ($session["valid"]) {
-            $scripts[] = 'js/misc.js';
-            $scripts[] = 'js/mqtt.min.js';
-            $scripts[] = 'lib/flot/jquery.flot.merged.js';
-            $scripts[] = 'js/vis.helper.js';
-            $scripts[] = 'js/graph.js';
-            $ie_scripts[] = 'lib/flot/excanvas.min.js';
-
-            $content = view("views/graph.php", array("settings"=>$settings,"session"=>$session));
-        } else {
-            $content = view("views/login_view.php");
-        }
-        break;
-        
-    // json api route
-    case "auth":
-        $format = "json";
-        if (isset($_POST["username"]) && isset($_POST["password"])) {
-
-            $username = $_POST["username"];
-            $password = $_POST["password"];
-            $next = filter_input(INPUT_POST, "next", FILTER_SANITIZE_STRING);
-
-            $content = json_decode(http_request("POST", "https://emoncms.org/user/auth.json", array(
-                "username" => $username,
-                "password" => $password,
-            )));
-            // add "next" prop to $content object. Pass a full url where path passed as $_POST['next']
-            if (!in_array($next, $blacklist)) $content->next = getFullUrl($next);
-
-            // Authenticated sucessfully with emoncms.org
-            // ----------------------------------------------------------------
-            if (isset($content->success) && $content->success === true) {
-
-                // SYNC THE ACL WITH THE AUTHORIZED USER'S DETAILS
-                // ------------------------------------------------------------
-                if (!DEBUG) {
-                    try {
-                        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-                        // database connection only required to update acl on login
-                        $mysqli = new mysqli(
-                            $mysql_settings["host"],
-                            $mysql_settings["user"],
-                            $mysql_settings["password"],
-                            $mysql_settings["database"],
-                            $mysql_settings["port"]
-                        );
-                    } catch (Exception $e) {
-                        // unable to use the desired connection to the mqtt broker acl database
-                        $content = array('success'=>false, 'message'=>"Database connection error", 'code'=>500);
-                        break;
-                    }
-
-                    if (!isset($mysqli) || !$stmt = $mysqli->prepare("SELECT username FROM users WHERE username=?")) {
-                        // the structure of the database doesn't match the prepared statement
-                        $content = array('success'=>false, 'message'=>"Precondition Failed", 'code'=>412);
-
-                    } else {
-                    // if mysql connection available find the user
-                        $stmt->bind_param("s",$username);
-                        $stmt->execute();
-                        $stmt->bind_result($userData_username);
-                        $result = $stmt->fetch();
-                        $stmt->close();
-                        
-                        $db_user_valid = false;
-
-                        // if no user found add them to the acl
-                        if (!$result) {
-                            // ---------------------------------------------------------------------------------
-                            // Register user on mqtt server
-                            // ---------------------------------------------------------------------------------
-                            include "lib/mqtt_hash.php";
-                            $mqtthash = create_hash($password);
-                            
-                            // insert new user into users table
-                            $stmt = $mysqli->prepare("INSERT INTO users ( username, pw, super) VALUES (?,?,0)");
-                            $stmt->bind_param("ss", $username, $mqtthash);
-                            $result = $stmt->execute();
-                            $stmt->close();
-                            
-                            if ($result) {
-                                // if new user successful add the user to the access control list.
-                                // access to only the topic (or sub topics) with their username is granted
-                                $topic = "user/$username/#";
-                                $stmt = $mysqli->prepare("INSERT INTO acls (username, topic, rw) VALUES (?,?,2)");
-                                $stmt->bind_param("ss", $username, $topic);
-                                $result = $stmt->execute();
-                                $stmt->close();
-                                if ($result) $db_user_valid = true;
-                            }
-                        } else {
-                            // $result was successful (user found)
-                            $db_user_valid = true;
-                        }
-                    }
-                }
-
-                // SAVE THE AUTHORIZED USER'S DETAILS TO THE SESSION
-                // --------------------------------------------------------
-                if (DEBUG || $db_user_valid) {
-                    session_regenerate_id();
-                    $_SESSION['username'] = $username;
-                    $_SESSION['password'] = $password;
-                }
-                
-            } elseif(isset($content->success) && $content->success === false){
-                // Authentication failure in with emoncms.org
-                $content = array('success'=>false, 'message'=>"Authentication error", 'code'=>403);
-            } else {
-                // emoncms.org returned un expected result
-                $content = array('success'=>false, 'message'=>"Server Error", 'code'=>500);
-            }
-        }
-	// header("Access-Control-Allow-Origin: *");
-        break;
-
-    case "logout":
-        $format = "themedhtml";
-        session_unset();
-        session_destroy();
-        $content = '<h2 class="mt-5">Logout successful</h2>';
-        break;
-
-    case "login":
-        $format = "themedhtml";
-        $content = view("views/login_view.php");
-        break;
-
-    default:
-    
-        $result = false;
-        if ($session["valid"]) {
-            
-            $whitelist = array("feed/list","feed/data","feed/value","feed/timevalue");
-            
-            if (in_array($q,$whitelist)) {
-                
-                $session["clientId"] = "mqtt_".$session["username"]."_".rand(0,1024);
-
-                $params = $_GET;
-                if (isset($params["q"])) unset($params["q"]);
-
-                $request = array(
-                    "clientId"=>$session["clientId"], "action"=>$q, "data"=>$params
-                );
-
-                $mqtt_client = new Mosquitto\Client('emoncms',true);
-                $mqtt_client->onConnect('connect');
-                $mqtt_client->onDisconnect('disconnect');
-                $mqtt_client->onSubscribe('subscribe');
-                $mqtt_client->onMessage('message');
-                           
-                $state = 0; // 0: start
-                            // 1: connected
-                            // 2: subscribed
-                            // 3: complete
-
-                $mqtt_client->setCredentials($session["username"],$session["password"]);
-                $mqtt_client->connect("localhost", 1883, 5);
-                       
-                $start = time();
-                while((time()-$start)<10.0) {
-                    try { 
-                        $mqtt_client->loop(10); 
-                    } catch (Exception $e) {
-                        if ($state) { $result = "error: ".$e; break; }
-                    }
-                    
-                    if ((time()-$start)>=3.0) {
-                        $mqtt_client->disconnect();
-                    }
-                    
-                    if ($state==3) break;
-                }
-                
-                $format = "json";
-                if ($result) {
-                    $result = json_decode($result);
-                    $content = $result->result;
-                } else {
-                    $content = "API Timeout";
-                }
-            }
-        }
-          
-        if ($content=="") {
-            $format = "json";
-            $content = "Error 404: Not Found";
-        }     
-}
-
-// ADD ERROR CODE IF AVAILABLE
-if(isset($content) && is_array($content) && !empty($content["code"])){
-    http_response_code($content["code"]);
-}
-
-// OUTPUT TO BROWSER
-switch ($format) 
-{
-    case "themedhtml":
-        header('Content-Type: text/html');
-        print view("views/theme.php", array(
-            'session' => $session,
-            'content' => $content,
-            'scripts' => $scripts,
-            'ie_scripts' => $ie_scripts,
-            'stylesheets' => $stylesheets
-        ));
-        break;
-    case "html":
-        header('Content-Type: text/html');
-        print $content;
-        break;
-    case "text":
-        header('Content-Type: text/plain');
-        print $content;
-        break;
-    case "json":
-        header('Content-Type: application/json');
-        print json_encode($content);
-        break;
-}
-
-// MQTT API
-function connect($r, $message) {
-    global $mqtt_client, $state, $session;
-    if( $r==0 ) {
-        $state = 1;
-        $mqtt_client->subscribe("user/".$session["username"]."/response/".$session["clientId"],2);
+// If no route specified use defaults
+if ($route->isRouteNotDefined())
+{   
+    if (!isset($session['read']) || (isset($session['read']) && !$session['read'])) {
+        // Non authenticated defaults
+        $route->controller = $default_controller;
+        $route->action = $default_action;
+        $route->subaction = "";
     } else {
-        $mqtt_client->disconnect();
+        // Authenticated defaults
+        $route->controller = $default_controller_auth;
+        $route->action = $default_action_auth;
+        $route->subaction = "";
     }
 }
 
-function subscribe() {
-    global $mqtt_client, $session, $request;
-    $mqtt_client->publish("user/".$session["username"]."/request", json_encode($request));
+$output = controller($route->controller);
+
+// If not authenticated and no ouput, asks for login
+if ($output['content'] == "#UNDEFINED#" && (!isset($session['read']) || (isset($session['read']) && !$session['read']))) {
+    $route->controller = "user";
+    $route->action = "login";
+    $route->subaction = "";
+    $output = controller($route->controller);
 }
 
-function unsubscribe() {
-    global $state;
-    $state = 1;
+// --------------------------------------------------------------------------------------------------------------------------
+// HTTP to MQTT bridge
+// --------------------------------------------------------------------------------------------------------------------------
+if ($output["content"] === "#UNDEFINED#" && $session["valid"]) {
+    $q = str_replace(".json","",$q);
+    $whitelist = array("feed/list","feed/data","feed/value","feed/timevalue","feed/listwithmeta","feed/fetch","app/list");
+    if (in_array($q,$whitelist)) {
+        $route->format = "json";
+        $remoteaccess = new RemoteAccess($session["username"],$session["password"]);
+        $output["content"] = $remoteaccess->request($q,$_GET);
+    }
 }
 
-function disconnect() {
-    global $state;
-    $state = 3;
+// If no controller found or nothing is returned, give friendly error
+if ($output['content'] === "#UNDEFINED#") {
+    header($_SERVER["SERVER_PROTOCOL"]." 406 Not Acceptable");
+    $output['content'] = "URI not acceptable. No controller '" . $route->controller . "'. (" . $route->action . "/" . $route->subaction .")";
 }
 
-function message($message) {
-    global $mqtt_client, $result;
-    $topic = $message->topic;
-    $result = $message->payload;
-    $mqtt_client->disconnect();
+// --------------------------------------------------------------------------------------------------------------------------
+
+// ADD ERROR CODE IF AVAILABLE
+// if(isset($content) && is_array($content) && !empty($content["code"])){
+//    http_response_code($content["code"]);
+// }
+
+// OUTPUT TO BROWSER
+switch ($route->format) 
+{
+    case "themedhtml":
+        header('Content-Type: text/html');
+        
+        $scripts[] = 'js/bootstrap.bundle.min.js';
+        $ie_scripts = array(); // scripts to only load in IE
+        $stylesheets[] = 'css/bootstrap.4.1.3.min.css';
+
+        $output["session"] = $session;
+        $output["scripts"] = $scripts;
+        $output["ie_scripts"] = $ie_scripts;
+        $output["stylesheets"] = $stylesheets;
+        
+        print view("Theme/concept/theme.php", $output);
+        break;
+    case "theme":
+        $theme = "basic";
+        $output['route'] = $route;
+        
+        header('Content-Type: text/html');
+        if ($embed == 1) {
+            print view("Theme/basic/embed.php", $output);
+        } else {
+            $menu = load_menu();
+            $output['mainmenu'] = view("Theme/basic/menu_view.php", array());
+            print view("Theme/basic/theme.php", $output);
+        }
+        break;
+    case "html":
+        header('Content-Type: text/html');
+        print $output["content"];
+        break;
+    case "text":
+        header('Content-Type: text/plain');
+        print $output["content"];
+        break;
+    case "json":
+        header('Content-Type: application/json');
+        print json_encode($output["content"]);
+        break;
 }
