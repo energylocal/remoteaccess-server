@@ -19,7 +19,7 @@ class RemoteAccess
         $this->password = $password;
     }
     
-    public function request($q,$params)
+    public function request($controller,$action,$subaction,$params)
     {
         $this->result = false;
         $this->clientId = "mqtt_".$this->username."_".rand(0,1024);
@@ -28,7 +28,7 @@ class RemoteAccess
         if (isset($params["apikey"])) unset($params["apikey"]);
 
         $this->request = array(
-            "clientId"=>$this->clientId, "action"=>$q, "data"=>$params
+            "clientId"=>$this->clientId, "controller"=>$controller, "action"=>$action, "subaction"=>$subaction, "data"=>$params
         );
 
         $this->client = new Mosquitto\Client('emoncms',true);

@@ -71,12 +71,11 @@ if ($output['content'] == "#UNDEFINED#" && (!isset($session['read']) || (isset($
 // HTTP to MQTT bridge
 // --------------------------------------------------------------------------------------------------------------------------
 if ($output["content"] === "#UNDEFINED#" && $session["valid"]) {
-    $q = str_replace(".json","",$q);
-    $whitelist = array("feed/list","feed/data","feed/value","feed/timevalue","feed/listwithmeta","feed/fetch","app/list");
-    if (in_array($q,$whitelist)) {
+    $whitelist = array("feed/list","feed/data","feed/value","feed/timevalue","feed/listwithmeta","feed/fetch","app/list","device/list","demandshaper/get","demandshaper/submit","input/get");
+    if (in_array($route->controller."/".$route->action,$whitelist)) {
         $route->format = "json";
         $remoteaccess = new RemoteAccess($session["username"],$session["password"]);
-        $output["content"] = $remoteaccess->request($q,$_GET);
+        $output["content"] = $remoteaccess->request($route->controller,$route->action,$route->subaction,$_GET);
     }
 }
 
