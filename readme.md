@@ -10,6 +10,8 @@ https://mqtt.emoncms.org
 
 ## MQTT Remote Access Server Setup
 
+### Mosquitto setup
+
 Mosquitto Installation
 
     sudo apt-add-repository ppa:mosquitto-dev/mosquitto-ppa
@@ -43,9 +45,7 @@ Install libmysqlclient-dev:
     
     sudo apt-get install libmysqlclient-dev
 
-Make:
-
-    make
+Make.
     
 Add to /etc/mosquitto/mosquitto.conf
 
@@ -92,6 +92,8 @@ Mosquitto PHP Client
     sudo pecl install Mosquitto-alpha
 
 ---
+
+### Emoncms Setup
 
 1\) Install emoncms on remote server
 
