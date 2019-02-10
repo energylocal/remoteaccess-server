@@ -21,10 +21,12 @@ Mosquitto MYSQL Auth (https://github.com/jpmens/mosquitto-auth-plug)
 Download mosquitto source:
 
     git clone https://github.com/eclipse/mosquitto.git
+    git checkout v1.4.8
     
 Download mosquitto auth plugin:
     
     git clone https://github.com/jpmens/mosquitto-auth-plug.git
+    git checkout 4e7fe9aadbdf6bcf9571b38d293bc0c081dd063b
     cd mosquitto-auth-plug
     cp config.mak.in config.mak
     
@@ -88,6 +90,8 @@ Mosquitto PHP Client
 
     sudo apt-get install libmosquitto-dev
     sudo pecl install Mosquitto-alpha
+
+---
 
 1\) Install emoncms on remote server
 
