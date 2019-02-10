@@ -10,6 +10,85 @@ https://mqtt.emoncms.org
 
 ## MQTT Remote Access Server Setup
 
+Mosquitto Installation
+
+    sudo apt-add-repository ppa:mosquitto-dev/mosquitto-ppa
+    sudo apt-get update
+    sudo apt-get install mosquitto
+
+Mosquitto MYSQL Auth (https://github.com/jpmens/mosquitto-auth-plug)
+
+Download mosquitto source:
+
+    git clone https://github.com/eclipse/mosquitto.git
+    
+Download mosquitto auth plugin:
+    
+    git clone https://github.com/jpmens/mosquitto-auth-plug.git
+    cd mosquitto-auth-plug
+    cp config.mak.in config.mak
+    
+Configure:
+
+    nano config.mak
+
+Set:
+
+    MOSQUITTO_SRC = /home/user/mosquitto
+    OPENSSLDIR = /usr/sbin
+
+Install libmysqlclient-dev:    
+    
+    sudo apt-get install libmysqlclient-dev
+
+Make:
+
+    make
+    
+Add to /etc/mosquitto/mosquitto.conf
+
+    # --------------------------------------------------------
+
+    allow_anonymous false
+    auth_plugin /home/user/mosquitto-auth-plug/auth-plug.so
+
+    listener 1883 localhost
+
+    # MQTTS
+    listener 8883
+    certfile /etc/letsencrypt/live/your_site/cert.pem
+    cafile /etc/letsencrypt/live/your_site/chain.pem
+    keyfile /etc/letsencrypt/live/your_site/privkey.pem
+
+    # WSS Secure WebSockets
+    listener 8083
+    protocol websockets
+    certfile /etc/letsencrypt/live/your_site/cert.pem
+    cafile /etc/letsencrypt/live/your_site/chain.pem
+    keyfile /etc/letsencrypt/live/your_site/privkey.pem
+
+    # --------------------------------------------------------
+
+    auth_opt_backends mysql
+
+    auth_opt_host localhost
+    auth_opt_port 3306
+    auth_opt_dbname mysql_db
+    auth_opt_user mysql_user
+    auth_opt_pass mysql_password
+
+    auth_opt_userquery SELECT pw FROM remoteaccess_users WHERE username = '%s'
+    auth_opt_superquery SELECT COUNT(*) FROM remoteaccess_users WHERE username = '%s' AND super = 1
+    auth_opt_aclquery SELECT topic FROM remoteaccess_acls WHERE (username = '%s') AND (rw >= %d)
+
+    auth_opt_anonusername AnonymouS
+
+
+Mosquitto PHP Client
+
+    sudo apt-get install libmosquitto-dev
+    sudo pecl install Mosquitto-alpha
+
 1\) Install emoncms on remote server
 
     cd /var/www/
