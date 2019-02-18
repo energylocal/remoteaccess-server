@@ -2,6 +2,8 @@
 
 Background discussion: [https://community.openenergymonitor.org/t/emoncms-local-vs-remote/7268](https://community.openenergymonitor.org/t/emoncms-local-vs-remote/7268)
 
+For user guide and client see: [https://github.com/emoncms/remoteaccess-client](https://github.com/emoncms/remoteaccess-client)
+
 ## Login on mqtt.emoncms.org
 
 Login on mqtt.emoncms.org with your emoncms.org username and password to register for the remote access service.
