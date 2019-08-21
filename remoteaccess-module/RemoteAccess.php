@@ -16,14 +16,14 @@ class RemoteAccess
 
     public function __construct($username,$password)
     {
-        $this->username = $username;
+        $this->username = trim($username);
         $this->password = $password;
     }
     
     public function request($controller,$action,$subaction,$params)
     {
         $this->result = false;
-        $this->clientId = "mqtt_".$this->username."_".rand(0,1024);
+        $this->clientId = "srv_".$this->username."_".rand(0,1024);
         
         if (isset($params["q"])) unset($params["q"]);
         if (isset($params["apikey"])) unset($params["apikey"]);
@@ -32,7 +32,7 @@ class RemoteAccess
             "clientId"=>$this->clientId, "controller"=>$controller, "action"=>$action, "subaction"=>$subaction, "data"=>$params
         );
 
-        $this->client = new Mosquitto\Client('emoncms',true);
+        $this->client = new Mosquitto\Client($this->clientId,true);
         
         $this->client->onConnect(function($r, $message){
             $this->connect($r, $message);

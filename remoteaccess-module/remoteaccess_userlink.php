@@ -62,3 +62,41 @@ function remoteaccess_userlink($mysqli,$username,$password) {
     
     return array('success'=>true);
 }
+
+function remoteaccess_userlink_existing($mysqli,$userid,$username,$password) {
+
+    if (!$stmt = $mysqli->prepare("SELECT username FROM remoteaccess_users WHERE username=?")) {
+        // the structure of the database doesn't match the prepared statement
+        return array('success'=>false, 'message'=>"Precondition Failed", 'code'=>412);
+    }
+
+    // if mysql connection available find the user
+    $stmt->bind_param("s",$username);
+    $stmt->execute();
+    $stmt->bind_result($userData_username);
+    $result = $stmt->fetch();
+    $stmt->close();
+
+    if (!$result) {
+        include "Modules/remoteaccess/mqtt_hash.php";
+        $mqtthash = create_hash($password);
+     
+        // insert new user into users table
+        $stmt = $mysqli->prepare("INSERT INTO remoteaccess_users ( id, username, pw, super) VALUES (?,?,?,0)");
+        $stmt->bind_param("iss",$userid,$username,$mqtthash);
+        $result = $stmt->execute();
+        $stmt->close();
+        if (!$result) return array('success'=>false, 'message'=>_("Error adding user to remoteaccess user list"));
+        
+        // if new user successful add the user to the access control list.
+        // access to only the topic (or sub topics) with their username is granted
+        $topic = "user/$username/#";
+        $stmt = $mysqli->prepare("INSERT INTO remoteaccess_acls (username, topic, rw) VALUES (?,?,2)");
+        $stmt->bind_param("ss", $username, $topic);
+        $result = $stmt->execute();
+        $stmt->close();
+        if (!$result) return array('success'=>false, 'message'=>_("Error adding user to remoteaccess access list"));
+    }
+    
+    return array('success'=>true);
+}
