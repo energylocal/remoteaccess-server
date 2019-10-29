@@ -63,7 +63,14 @@ function remoteaccess_userlink($mysqli,$username,$password) {
     return array('success'=>true);
 }
 
-function remoteaccess_userlink_existing($mysqli,$userid,$username,$password) {
+function remoteaccess_userlink_existing($mysqli,$userid) {
+
+    $userid = (int) $userid;
+    $result = $mysqli->query("SELECT username, apikey_write FROM users WHERE `id`='$userid'");
+    if (!$row = $result->fetch_object()) return array('success'=>false, 'message'=>"User does not exist");
+
+    $username = $row->username;
+    $apikey_write = $row->apikey_write;
 
     if (!$stmt = $mysqli->prepare("SELECT username FROM remoteaccess_users WHERE username=?")) {
         // the structure of the database doesn't match the prepared statement
@@ -78,8 +85,8 @@ function remoteaccess_userlink_existing($mysqli,$userid,$username,$password) {
     $stmt->close();
 
     if (!$result) {
-        include "Modules/remoteaccess/mqtt_hash.php";
-        $mqtthash = create_hash($password);
+        include_once "Modules/remoteaccess/mqtt_hash.php";
+        $mqtthash = create_hash($apikey_write);
      
         // insert new user into users table
         $stmt = $mysqli->prepare("INSERT INTO remoteaccess_users ( id, username, pw, super) VALUES (?,?,?,0)");

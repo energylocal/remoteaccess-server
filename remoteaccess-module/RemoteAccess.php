@@ -10,17 +10,15 @@ class RemoteAccess
     private $request;
     // Session
     private $username;
-    private $password;
     private $clientId;
     
 
-    public function __construct($username,$password)
+    public function __construct($username)
     {
         $this->username = trim($username);
-        $this->password = $password;
     }
     
-    public function request($controller,$action,$subaction,$params)
+    public function request($controller,$action,$subaction,$params, $timeout = 5.0)
     {
         $this->result = false;
         $this->clientId = "srv_".$this->username."_".rand(0,1024);
@@ -52,7 +50,10 @@ class RemoteAccess
                     // 2: subscribed
                     // 3: complete
 
-        $this->client->setCredentials($this->username,$this->password);
+        //global $session;
+        //$this->client->setCredentials($session["username"],$session["password"]);
+        global $remoteaccess_superadmin_password;
+        $this->client->setCredentials("superadmin",$remoteaccess_superadmin_password);
         $this->client->connect("localhost", 1883, 5);
                
         $start = time();
@@ -63,11 +64,13 @@ class RemoteAccess
                 if ($this->state) return "error: ".$e;
             }
             
-            if ((time()-$start)>=3.0) {
+            if ((time()-$start)>=$timeout) {
                 $this->client->disconnect();
             }
             
             if ($this->state==3) break;
+            
+            usleep(1000);
         }
         
         if ($this->result) {
