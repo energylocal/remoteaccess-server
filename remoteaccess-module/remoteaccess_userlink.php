@@ -58,6 +58,13 @@ function remoteaccess_userlink($mysqli,$username,$password) {
         $result = $stmt->execute();
         $stmt->close();
         if (!$result) return array('success'=>false, 'message'=>_("Error adding user to remoteaccess access list"));
+
+        $topic = "user/$userid/#";
+        $stmt = $mysqli->prepare("INSERT INTO remoteaccess_acls (username, topic, rw) VALUES (?,?,2)");
+        $stmt->bind_param("ss", $username, $topic);
+        $result = $stmt->execute();
+        $stmt->close();
+        if (!$result) return array('success'=>false, 'message'=>_("Error adding user to remoteaccess access list"));
     }
     
     return array('success'=>true);
@@ -98,6 +105,23 @@ function remoteaccess_userlink_existing($mysqli,$userid) {
         // if new user successful add the user to the access control list.
         // access to only the topic (or sub topics) with their username is granted
         $topic = "user/$username/#";
+        $stmt = $mysqli->prepare("INSERT INTO remoteaccess_acls (username, topic, rw) VALUES (?,?,2)");
+        $stmt->bind_param("ss", $username, $topic);
+        $result = $stmt->execute();
+        $stmt->close();
+        if (!$result) return array('success'=>false, 'message'=>_("Error adding user to remoteaccess access list"));
+    }
+    
+    $topic = "user/$userid/#";  
+    $stmt = $mysqli->prepare("SELECT username FROM remoteaccess_acls WHERE username=? AND topic=?");    
+    $stmt->bind_param("ss",$username,$topic);
+    $stmt->execute();
+    $stmt->bind_result($userData_username);
+    $result = $stmt->fetch();
+    $stmt->close();
+    
+    if (!$result) {
+        $topic = "user/$userid/#";
         $stmt = $mysqli->prepare("INSERT INTO remoteaccess_acls (username, topic, rw) VALUES (?,?,2)");
         $stmt->bind_param("ss", $username, $topic);
         $result = $stmt->execute();
