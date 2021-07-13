@@ -1,0 +1,7 @@
+{
+    "name"         : "RemoteAccess-server",
+    "version"      : "1.1.4",
+    "location"     : "/opt/emoncms/modules",
+    "branches_available": ["stable","master"],
+    "requires": []
+}
